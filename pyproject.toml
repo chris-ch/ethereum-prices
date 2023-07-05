@@ -13,6 +13,7 @@ jax = "^0.3.13"
 tensorflow = "2.9.3"
 torch = "1.13.1"
 python-binance = "^1.0.17"
+data-cache = "^0.1.6"
 
 [tool.poetry.dev-dependencies]
 debugpy = "^1.6.2"

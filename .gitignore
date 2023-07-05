@@ -159,7 +159,9 @@ cython_debug/
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 #.idea/
 
-venv/
 .replit
 replit.nix
 .breakpoints
+
+#cache file for pandas
+data.h5
