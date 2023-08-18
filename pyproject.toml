@@ -2,22 +2,20 @@
 name = "python-template"
 version = "0.1.0"
 description = ""
-authors = ["Your Name <you@example.com>"]
-
+authors = ["Christophe Alexandre <christophe.alexandre@pm.me>"]
+        
 [tool.poetry.dependencies]
 python = ">=3.10.0,<3.11"
 numpy = "^1.22.2"
 matplotlib = "^3.5.2"
-pandas = "^1.4.2"
-jax = "^0.3.13"
-tensorflow = "2.9.3"
-torch = "1.13.1"
-python-binance = "^1.0.17"
+pandas = "^2.0.3"
 data-cache = "^0.1.6"
 jupyter = "^1.0.0"
+python-binance = "^1.0.17"
+scipy = "^1.11.2"
 
 [tool.poetry.dev-dependencies]
-debugpy = "^1.6.2"
+debugpy = "^1.6.7"
 replit-python-lsp-server = {extras = ["yapf", "rope", "pyflakes"], version = "^1.5.9"}
 toml = "^0.10.2"
 
