@@ -31,7 +31,7 @@ def main():
     client = binance.Client()
 
     current_year = datetime.now().year
-    df_years = list()
+    df_years = []
     for year in range(current_year - COUNT_YEARS, current_year):
         df = load_prices(client, "ETHUSDT", year)
         df = df.drop(['closeTime', 'quoteAssetVolume', 'numberOfTrades', 'takerBuyBaseVol', 'takerBuyQuoteVol', 'ignore'], axis=1)

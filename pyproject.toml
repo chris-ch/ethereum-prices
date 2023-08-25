@@ -1,18 +1,17 @@
 [tool.poetry]
-name = "python-template"
+name = "option-valuation"
 version = "0.1.0"
 description = ""
 authors = ["Christophe Alexandre <christophe.alexandre@pm.me>"]
         
 [tool.poetry.dependencies]
-python = ">=3.10.0,<3.11"
+python = ">=3.10,<3.13"
 numpy = "^1.22.2"
 matplotlib = "^3.5.2"
 pandas = "^2.0.3"
 data-cache = "^0.1.6"
 jupyter = "^1.0.0"
 python-binance = "^1.0.17"
-scipy = "^1.11.2"
 
 [tool.poetry.dev-dependencies]
 debugpy = "^1.6.7"
