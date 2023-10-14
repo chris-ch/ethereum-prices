@@ -163,7 +163,4 @@ cython_debug/
 replit.nix
 .breakpoints
 
-#cache file for pandas
-data.h5
-
 .idea
