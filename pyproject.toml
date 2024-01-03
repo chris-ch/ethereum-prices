@@ -6,15 +6,15 @@ authors = ["Christophe Alexandre <christophe.alexandre@pm.me>"]
         
 [tool.poetry.dependencies]
 python = ">=3.10,<3.13"
-numpy = "^1.22.2"
-matplotlib = "^3.5.2"
-pandas = "^2.0.3"
+numpy = "^1.26.2"
+matplotlib = "^3.8.2"
+pandas = "^2.1.4"
 data-cache = "^0.1.6"
 jupyter = "^1.0.0"
 python-binance = "^1.0.17"
 
 [tool.poetry.dev-dependencies]
-debugpy = "^1.6.7"
+debugpy = "^1.8.0"
 replit-python-lsp-server = {extras = ["yapf", "rope", "pyflakes"], version = "^1.5.9"}
 toml = "^0.10.2"
 
