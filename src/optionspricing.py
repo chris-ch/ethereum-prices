@@ -1,6 +1,6 @@
 import os
 from datetime import date, datetime, timedelta, timezone
-from typing import Dict, Tuple
+from typing import Dict, Tuple, List
 
 import pandas
 import requests
@@ -60,10 +60,13 @@ def load_options(base_url: str, headers: Dict[str, str], instrument_code: str):
 
 
 class TradingScenario:
-    def __init__(self, model, options_chain):
-        self._model = model
+    def __init__(self, underlying_price, target_expiry, remaining_hours, options_chain):
+        self._underlying_price = underlying_price
+        self._target_expiry = target_expiry
+        self._remaining_hours = remaining_hours
         self._options_chain = options_chain
         self._cases = []
+        self._backtests = []
 
     @property
     def options_chain(self):
@@ -71,25 +74,76 @@ class TradingScenario:
 
     def __repr__(self):
         rows = [
-            f'target expiry: {self._model.target_expiry.astimezone(timezone.utc)} ({self._model.remaining_hours} hours left)',
-            f'current price: {self._model.underlying_price}'
+            f'target expiry: {self._target_expiry.astimezone(timezone.utc)} ({self._remaining_hours} hours left)',
+            f'current price: {self._underlying_price}'
         ]
         for case in self._cases:
             rows.extend(
                 (
                     "-------------------------------",
-                    f'trading put {case[1]:.0f} and call {case[2]:.0f}',
-                    f"hit ratio: {case[0]:.0%}",
-                    f'cost: {case[3]:.3f} / value: {case[4]:.3f}, benefit/cost = {case[5]:.1f}x',
-                    f'($) cost: {case[6]:.2f} / value: {case[7]:.2f}, average gain = {case[8]:.2f}',
+                    f'trading put {case['put_name']:.0f} and call {case['call_name']:.0f}',
+                    f"hit ratio: {case['hit_ratio']:.0%}",
+                    f'cost: {case['cost']:.3f} / value: {case['value']:.3f}, benefit/cost = {case['gain_ratio']:.1f}x',
+                    f'($) cost: {case['cost_amount']:.2f} / value: {case['value_amount']:.2f}, average gain = {case['gain_amount']:.2f}',
                 )
             )
         return os.linesep.join(rows)
 
-    def add_case(self, hit_ratio, put_name, call_name, cost, value, gain_ratio, cost_amount, value_amount, gain_amount):
-        self._cases.append([
-            hit_ratio, put_name, call_name, cost, value, gain_ratio, cost_amount, value_amount, gain_amount
-        ])
+    def allocate(self, trading_cases: List[int], budget: float):
+        if not (set(trading_cases) <= set(range(len(self.cases)))):
+            raise ValueError(f'case {trading_cases} are not part of available trading cases')
+
+        trades = []
+        portion = budget / len(trading_cases)
+        for case in trading_cases:
+            trade = {
+                "put": self.cases[case]["put_name"],
+                "call": self.cases[case]["call_name"],
+                "quantity": int(round(portion / self.cases[case]["cost_amount"], 0))
+            }
+            trades.append(trade)
+
+        return trades
+
+    def add_case(self, count, hit_ratio, put_name, call_name, cost, value, gain_ratio, cost_amount, value_amount, gain_amount):
+        case_dict = {
+            'count': count,
+            'hit_ratio': hit_ratio,
+            'put_name': put_name,
+            'call_name': call_name,
+            'cost': cost,
+            'value': value,
+            'gain_ratio': gain_ratio,
+            'cost_amount': cost_amount,
+            'value_amount': value_amount,
+            'gain_amount': gain_amount
+        }
+        self._cases.append(case_dict)
+
+    @property
+    def cases(self):
+        return self._cases
+
+    def add_backtest(self, backtest):
+        self._backtests.append(backtest)
+
+    @property
+    def backtests_returns(self):
+        return self._backtests
+
+    def backtests_prices(self, count: int):
+        return (1 + self.backtests_returns[count]).cumprod()
+
+    def backtests_drawdowns(self, count: int):
+        return self.backtests_prices(count) - self.backtests_prices(count).cummax()
+
+    def backtests_period_drawdowns(self, count: int):
+        drawdown = self.backtests_prices(count) - self.backtests_prices(count).cummax()
+        # Finds the start and end indices of each drawdown
+        drawdown_start = (drawdown < 0) & (drawdown.shift(1) >= 0)
+
+        # Calculates the duration of each drawdown
+        return drawdown_start.groupby((drawdown_start != drawdown_start.shift()).cumsum()).cumcount() + 1
 
 
 class TradingModel:
@@ -200,7 +254,7 @@ class TradingModel:
         return self._valuation
 
     def simulation(self, option_chain_df: pandas.DataFrame, strikes_universe_size: int):
-        scenario = TradingScenario(self, option_chain_df)
+        scenario = TradingScenario(self.underlying_price, self.target_expiry, self.remaining_hours, option_chain_df)
         for count in range(1, strikes_universe_size + 1):
             index_put = strikes_universe_size - count + 1
             index_call = strikes_universe_size + count + 1
@@ -209,10 +263,10 @@ class TradingModel:
                 option_chain_df.iloc[index_put - 1]['value_put_pct'] + option_chain_df.iloc[index_call - 1][
                     'value_call_pct']
             )
-            strategy_value_pct = self.valuation[f"put_value_pct_{index_put}"] + self.valuation[
-                f"call_value_pct_{index_call}"]
+            strategy_value_pct = (self.valuation[f"put_value_pct_{index_put}"]
+                                  + self.valuation[f"call_value_pct_{index_call}"])
             hit_ratio = strategy_value_pct.loc[(strategy_value_pct - cost) > 0.].count() / strategy_value_pct.count()
-            scenario.add_case(hit_ratio,
+            scenario.add_case(count, hit_ratio,
                               option_chain_df.iloc[index_put - 1].name,
                               option_chain_df.iloc[index_call - 1].name,
                               cost,
@@ -222,4 +276,8 @@ class TradingModel:
                               value * self.underlying_price,
                               (value - cost) * self.underlying_price
                               )
+            ###
+            backtest_current = strategy_value_pct - cost
+            backtest_sampled_daily = backtest_current.loc[backtest_current.index.hour == 9]
+            scenario.add_backtest(backtest_sampled_daily)
         return scenario
