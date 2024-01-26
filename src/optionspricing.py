@@ -68,7 +68,9 @@ class TradingModel:
 
         self._target_expiry = min({k[1] for k in self._puts.keys()},
                             key=lambda d: abs(d - (datetime.now() + timedelta(hours=target_period_hours))))
-        self._strikes = {strike for strike, _ in self._puts.keys()}
+
+        self._put_strikes = {strike for strike, expiry in self._puts.keys() if expiry == self._target_expiry}
+        self._call_strikes = {strike for strike, expiry in self._calls.keys() if expiry == self._target_expiry}
     
         self._current_price = load_current_price(base_url, headers, instrument_code)
 
@@ -89,7 +91,7 @@ class TradingModel:
         if self._cutoff_year_month is not None:
             df = df.loc[map(lambda ind: (ind.year, ind.month) >= self._cutoff_year_month, df.index)]
 
-        strike_prices = generate_strikes(self.underlying_price, self.strikes, strikes_universe_size)
+        strike_prices = generate_strikes(self.underlying_price, self.put_strikes, strikes_universe_size)
 
         for count, strike_price in enumerate(strike_prices, start=1):
             strike_factor = strike_price / self.underlying_price
@@ -135,11 +137,15 @@ class TradingModel:
     @property
     def calls(self):
         return self._calls
-    
+
     @property
-    def strikes(self):
-        return self._strikes
-    
+    def put_strikes(self):
+        return self._put_strikes
+
+    @property
+    def call_strikes(self):
+        return self._call_strikes
+
     @property
     def underlying_price(self):
         return self._current_price
