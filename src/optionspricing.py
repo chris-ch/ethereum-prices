@@ -81,10 +81,9 @@ class TradingScenario:
             rows.extend(
                 (
                     "-------------------------------",
-                    f'trading put {case['put_name']:.0f} and call {case['call_name']:.0f}',
-                    f"hit ratio: {case['hit_ratio']:.0%}",
-                    f'cost: {case['cost']:.3f} / value: {case['value']:.3f}, benefit/cost = {case['gain_ratio']:.1f}x',
-                    f'($) cost: {case['cost_amount']:.2f} / value: {case['value_amount']:.2f}, average gain = {case['gain_amount']:.2f}',
+                    f"trading put {case['put_name']:.0f} and call {case['call_name']:.0f} (hit ratio: {case['hit_ratio']:.0%})",
+                    f"cost: {case['cost']:.3f} / value: {case['value']:.3f}, benefit/cost = {case['gain_ratio']:.1f}x",
+                    f"($) cost: {case['cost_amount']:.2f} / value: {case['value_amount']:.2f}, average gain = {case['gain_amount']:.2f}"
                 )
             )
         return os.linesep.join(rows)
