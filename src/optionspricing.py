@@ -1,4 +1,5 @@
-from datetime import date, datetime, timedelta
+import os
+from datetime import date, datetime, timedelta, timezone
 from typing import Dict, Tuple
 
 import pandas
@@ -58,6 +59,39 @@ def load_options(base_url: str, headers: Dict[str, str], instrument_code: str):
     return puts, calls
 
 
+class TradingScenario:
+    def __init__(self, model, options_chain):
+        self._model = model
+        self._options_chain = options_chain
+        self._cases = []
+
+    @property
+    def options_chain(self):
+        return self._options_chain
+
+    def __repr__(self):
+        rows = [
+            f'target expiry: {self._model.target_expiry.astimezone(timezone.utc)} ({self._model.remaining_hours} hours left)',
+            f'current price: {self._model.underlying_price}'
+        ]
+        for case in self._cases:
+            rows.extend(
+                (
+                    "-------------------------------",
+                    f'trading put {case[1]:.0f} and call {case[2]:.0f}',
+                    f"hit ratio: {case[0]:.0%}",
+                    f'cost: {case[3]:.3f} / value: {case[4]:.3f}, benefit/cost = {case[5]:.1f}x',
+                    f'($) cost: {case[6]:.2f} / value: {case[7]:.2f}, average gain = {case[8]:.2f}',
+                )
+            )
+        return os.linesep.join(rows)
+
+    def add_case(self, hit_ratio, put_name, call_name, cost, value, gain_ratio, cost_amount, value_amount, gain_amount):
+        self._cases.append([
+            hit_ratio, put_name, call_name, cost, value, gain_ratio, cost_amount, value_amount, gain_amount
+        ])
+
+
 class TradingModel:
     def __init__(self, base_url: str, headers: Dict[str, str], instrument_code: str, target_period_hours: int):
         self._base_url = base_url
@@ -67,11 +101,11 @@ class TradingModel:
         self._puts, self._calls = load_options(self._base_url, self._headers, self._instrument_code)
 
         self._target_expiry = min({k[1] for k in self._puts.keys()},
-                            key=lambda d: abs(d - (datetime.now() + timedelta(hours=target_period_hours))))
+                                  key=lambda d: abs(d - (datetime.now() + timedelta(hours=target_period_hours))))
 
         self._put_strikes = {strike for strike, expiry in self._puts.keys() if expiry == self._target_expiry}
         self._call_strikes = {strike for strike, expiry in self._calls.keys() if expiry == self._target_expiry}
-    
+
         self._current_price = load_current_price(base_url, headers, instrument_code)
 
         self._remaining_hours = int(round((self._target_expiry - datetime.now()).total_seconds() / 3600, 0))
@@ -80,8 +114,8 @@ class TradingModel:
 
     def cutoff_year_month(self, year_month: Tuple[int, int]):
         self._cutoff_year_month = year_month
-        
-    def evaluate(self, prices_df: pandas.DataFrame, strikes_universe_size: int):
+
+    def evaluate(self, prices_df: pandas.DataFrame, strikes_universe_size: int) -> TradingScenario:
         open_prices = prices_df['open']
         period_close_series = prices_df['close'].shift(-self.remaining_hours)
         df = pandas.DataFrame({
@@ -112,7 +146,8 @@ class TradingModel:
         option_chain = []
         for count, strike_price in enumerate(strike_prices, start=1):
             put_bid, put_ask = load_bid_ask(self._base_url, self._headers, self.puts, strike_price, self.target_expiry)
-            call_bid, call_ask = load_bid_ask(self._base_url, self._headers, self.calls, strike_price, self.target_expiry)
+            call_bid, call_ask = load_bid_ask(self._base_url, self._headers, self.calls, strike_price,
+                                              self.target_expiry)
             strike_data = {
                 'strike': strike_price,
                 'value_call': df[f'call_value_pct_{count}'].mean() * self.underlying_price,
@@ -129,7 +164,8 @@ class TradingModel:
 
             option_chain.append(strike_data)
 
-        return pandas.DataFrame(option_chain).set_index('strike').sort_index()
+        option_chain_df = pandas.DataFrame(option_chain).set_index('strike').sort_index()
+        return self.simulation(option_chain_df, strikes_universe_size)
 
     @property
     def puts(self):
@@ -150,7 +186,7 @@ class TradingModel:
     @property
     def underlying_price(self):
         return self._current_price
-    
+
     @property
     def remaining_hours(self):
         return self._remaining_hours
@@ -162,3 +198,28 @@ class TradingModel:
     @property
     def valuation(self):
         return self._valuation
+
+    def simulation(self, option_chain_df: pandas.DataFrame, strikes_universe_size: int):
+        scenario = TradingScenario(self, option_chain_df)
+        for count in range(1, strikes_universe_size + 1):
+            index_put = strikes_universe_size - count + 1
+            index_call = strikes_universe_size + count + 1
+            cost, value = (
+                option_chain_df.iloc[index_put - 1]['put_ask'] + option_chain_df.iloc[index_call - 1]['call_ask'],
+                option_chain_df.iloc[index_put - 1]['value_put_pct'] + option_chain_df.iloc[index_call - 1][
+                    'value_call_pct']
+            )
+            strategy_value_pct = self.valuation[f"put_value_pct_{index_put}"] + self.valuation[
+                f"call_value_pct_{index_call}"]
+            hit_ratio = strategy_value_pct.loc[(strategy_value_pct - cost) > 0.].count() / strategy_value_pct.count()
+            scenario.add_case(hit_ratio,
+                              option_chain_df.iloc[index_put - 1].name,
+                              option_chain_df.iloc[index_call - 1].name,
+                              cost,
+                              value,
+                              value / cost,
+                              cost * self.underlying_price,
+                              value * self.underlying_price,
+                              (value - cost) * self.underlying_price
+                              )
+        return scenario

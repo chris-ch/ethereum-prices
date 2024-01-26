@@ -3,7 +3,6 @@ name = "option-valuation"
 version = "0.1.0"
 description = ""
 authors = ["Christophe Alexandre <christophe.alexandre@pm.me>"]
-packages = [{from="src"}]
 
 [tool.poetry.dependencies]
 python = ">=3.10,<3.13"
