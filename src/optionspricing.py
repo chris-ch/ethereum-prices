@@ -76,6 +76,7 @@ class TradingModel:
 
         self._remaining_hours = int(round((self._target_expiry - datetime.now()).total_seconds() / 3600, 0))
         self._cutoff_year_month = None
+        self._valuation = None
 
     def cutoff_year_month(self, year_month: Tuple[int, int]):
         self._cutoff_year_month = year_month
@@ -96,15 +97,17 @@ class TradingModel:
         for count, strike_price in enumerate(strike_prices, start=1):
             strike_factor = strike_price / self.underlying_price
             df[f'strike_{count}'] = df['prices'].multiply(strike_factor)
-            df[f'strike_pct_{count}'] = strike_factor
+            df[f'strike_pct_{count}'] = strike_factor * 100.
 
-            df[f'call_value_{count}'] = df['period_close_series'].subtract(df[f'strike_{count}'])
-            df.loc[df[f'call_value_{count}'] < 0., f'call_value_{count}'] = 0.
-            df[f'call_value_pct_{count}'] = df[f'call_value_{count}'].divide(df['prices'])
+            call_values = df['period_close_series'].subtract(df[f'strike_{count}'])
+            df[f'call_value_pct_{count}'] = call_values.divide(df['prices'])
+            df.loc[df[f'call_value_pct_{count}'] < 0., f'call_value_pct_{count}'] = 0.
 
-            df[f'put_value_{count}'] = df[f'strike_{count}'].subtract(df['period_close_series'])
-            df.loc[df[f'put_value_{count}'] < 0., f'put_value_{count}'] = 0.
-            df[f'put_value_pct_{count}'] = df[f'put_value_{count}'].divide(df['prices'])
+            put_values = df[f'strike_{count}'].subtract(df['period_close_series'])
+            df[f'put_value_pct_{count}'] = put_values.divide(df['prices'])
+            df.loc[df[f'put_value_pct_{count}'] < 0., f'put_value_pct_{count}'] = 0.
+
+        self._valuation = df
 
         option_chain = []
         for count, strike_price in enumerate(strike_prices, start=1):
@@ -113,11 +116,9 @@ class TradingModel:
             strike_data = {
                 'strike': strike_price,
                 'value_call': df[f'call_value_pct_{count}'].mean() * self.underlying_price,
-                'value_put': df[f'put_value_pct_{count}'].mean() * self.underlying_price,
-                'value_call_median': df[f'call_value_pct_{count}'].quantile(0.5) * self.underlying_price,
-                'value_put_median': df[f'put_value_pct_{count}'].quantile(0.5) * self.underlying_price,
                 'value_call_pct': df[f'call_value_pct_{count}'].mean(),
                 'call_ask': call_ask,
+                'value_put': df[f'put_value_pct_{count}'].mean() * self.underlying_price,
                 'value_put_pct': df[f'put_value_pct_{count}'].mean(),
                 'put_ask': put_ask
             }
@@ -157,3 +158,7 @@ class TradingModel:
     @property
     def target_expiry(self):
         return self._target_expiry
+
+    @property
+    def valuation(self):
+        return self._valuation
