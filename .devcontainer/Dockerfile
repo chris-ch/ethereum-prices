@@ -27,4 +27,6 @@ RUN curl --remote-name https://bootstrap.pypa.io/get-pip.py
 RUN python get-pip.py
 RUN pip install poetry
 
+RUN /bin/echo -e "\nexport PATH=$PATH:/home/${USER_NAME}/.local/bin/\n" >> /home/${USER_NAME}/.bashrc
+
 CMD [ "sleep", "infinity" ]

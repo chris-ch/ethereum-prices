@@ -1,6 +1,14 @@
 {
 	"build": { "dockerfile": "Dockerfile" }
 	, "remoteUser": "python"
-	, "containerUser": "python"
-	, "workspaceFolder": "/home/python/workspace/"
+	,
+	"containerUser": "python",
+	"customizations": {
+		"vscode": {
+			"extensions": [
+				"ms-python.python",
+				"hashicorp.terraform"
+			]
+		}
+	}
 }
