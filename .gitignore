@@ -164,3 +164,6 @@ replit.nix
 .breakpoints
 
 .idea
+.terraform
+.deploy
+.terraform.*

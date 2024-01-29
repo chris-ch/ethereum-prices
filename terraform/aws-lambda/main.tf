@@ -14,7 +14,7 @@ locals {
 data "archive_file" "lambda_package" {
   type        = "zip"
   output_path = "${local.deployment_staging}/lambda-${var.function_name}.zip"
-  source_file = "${var.function_path}/${var.function_name}"
+  source_file = "${path.cwd}/${var.function_path}/lambda.py"
 
   # depends_on = [
   #   resource.null_resource.prepare_bootstrap
@@ -25,7 +25,7 @@ resource "aws_lambda_function" "lambda_function" {
   filename         = data.archive_file.lambda_package.output_path
   function_name    = var.function_name
   role             = aws_iam_role.lambda_role.arn
-  handler          = "hello.handler"
+  handler          = "lambda.handler"
   runtime          = "python3.12"
   source_code_hash = data.archive_file.lambda_package.output_base64sha256
   timeout          = var.timeout

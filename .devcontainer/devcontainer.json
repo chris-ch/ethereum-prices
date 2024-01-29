@@ -12,6 +12,7 @@
 				"mark-tucker.aws-cli-configure"
 			]
 		}
-	},
-	"postStartCommand": "bash --login -c 'poetry update'"
+	}
+	, "postCreateCommand": "bash .devcontainer/startup.sh"
+	, "postStartCommand": "bash --login -c 'poetry update'"
 }
