@@ -18,6 +18,8 @@ RUN curl https://apt.releases.hashicorp.com/gpg | gpg --dearmor -o /usr/share/ke
 RUN echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(lsb_release -cs) main" | tee /etc/apt/sources.list.d/hashicorp.list
 RUN apt update && apt install terraform
 
+RUN ln -s /bin/bash /usr/bin/bash
+
 RUN /usr/sbin/groupadd --gid ${USER_GID} ${USER_NAME} \
     && /usr/sbin/useradd --uid ${USER_UID} --gid ${USER_GID} --no-log-init --create-home -m ${USER_NAME} -s /usr/bin/bash \
     && /bin/echo ${USER_NAME} ALL=\(root\) NOPASSWD:ALL > /etc/sudoers.d/${USER_NAME} \

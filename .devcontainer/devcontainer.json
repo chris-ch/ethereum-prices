@@ -9,7 +9,9 @@
 				"ms-python.python",
 				"hashicorp.terraform",
 				"ms-azuretools.vscode-docker",
-				"mark-tucker.aws-cli-configure"
+				"mark-tucker.aws-cli-configure",
+				"ms-toolsai.jupyter",
+				"amazonwebservices.aws-toolkit-vscode"
 			]
 		}
 	}
