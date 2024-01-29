@@ -1,4 +1,4 @@
-variable "exe_path" {
+variable "function_path" {
   type = string
 }
 
