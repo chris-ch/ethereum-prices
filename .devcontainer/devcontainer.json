@@ -2,4 +2,5 @@
 	"build": { "dockerfile": "Dockerfile" }
 	, "remoteUser": "python"
 	, "containerUser": "python"
+	, "workspaceFolder": "/home/python/workspace/"
 }
