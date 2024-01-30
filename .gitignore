@@ -168,3 +168,5 @@ replit.nix
 .deploy
 .terraform.*
 .DS_Store/
+
+terraform.tfstate*

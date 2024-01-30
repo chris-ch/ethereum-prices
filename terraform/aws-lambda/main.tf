@@ -1,20 +1,26 @@
 locals {
   deployment_staging = ".deploy"
+  lambda_main = "${path.cwd}/${var.function_path}/lambda.py"
+  lambda_lib_files_relative = fileset("${path.cwd}/src", "*.py")
+  lambda_lib_files = [for lambda_file in local.lambda_lib_files_relative : "${path.cwd}/src/${lambda_file}"]
+  lambda_files = toset(concat(local.lambda_lib_files, [local.lambda_main]))
 }
 
-# resource "null_resource" "prepare_layer" {
-#   triggers = {
-#     script_hash = sha256(var.exe_path)
-#   }
-#   provisioner "local-exec" {
-#     command = "mkdir -p ${local.deployment_staging}/${var.function_name} && cp ${var.exe_path} ${local.deployment_staging}/${var.function_name}/bootstrap && strip ${local.deployment_staging}/${var.function_name}/bootstrap"
-#   }
-# }
+resource "null_resource" "sync_deployment_files" {
+  for_each = local.lambda_files
+    triggers = {
+      script_hash = sha256(each.value)
+    }
+   provisioner "local-exec" {
+     command = "mkdir -p ${local.deployment_staging}/${var.function_name} && cp ${each.value} ${local.deployment_staging}/${var.function_name}/${basename(each.value)}"
+   }
+}
 
 data "archive_file" "lambda_package" {
   type        = "zip"
   output_path = "${local.deployment_staging}/lambda-${var.function_name}.zip"
-  source_file = "${path.cwd}/${var.function_path}/lambda.py"
+  #source_file = "${path.cwd}/${var.function_path}/lambda.py"
+  source_dir = "${local.deployment_staging}/${var.function_name}"
 
   # depends_on = [
   #   resource.null_resource.prepare_bootstrap
