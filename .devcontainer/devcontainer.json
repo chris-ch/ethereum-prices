@@ -11,7 +11,8 @@
 				"ms-azuretools.vscode-docker",
 				"mark-tucker.aws-cli-configure",
 				"ms-toolsai.jupyter",
-				"amazonwebservices.aws-toolkit-vscode"
+				"amazonwebservices.aws-toolkit-vscode",
+				"zeshuaro.vscode-python-poetry"
 			]
 		}
 	}

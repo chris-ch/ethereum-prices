@@ -167,3 +167,4 @@ replit.nix
 .terraform
 .deploy
 .terraform.*
+.DS_Store/
