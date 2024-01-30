@@ -12,10 +12,11 @@
 				"mark-tucker.aws-cli-configure",
 				"ms-toolsai.jupyter",
 				"amazonwebservices.aws-toolkit-vscode",
-				"zeshuaro.vscode-python-poetry"
+				"zeshuaro.vscode-python-poetry",
+				"tamasfe.even-better-toml"
 			]
 		}
 	}
 	, "postCreateCommand": "bash .devcontainer/startup.sh"
-	, "postStartCommand": "bash --login -c 'poetry update'"
+	, "postStartCommand": "bash --login -c 'pip install --upgrade pip && poetry update'"
 }

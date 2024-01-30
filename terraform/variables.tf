@@ -13,3 +13,8 @@ variable "deribit_client_id" {
 variable "deribit_client_secret" {
   type = string
 }
+
+variable "deployment_staging" {
+  type = string
+  default = ".deploy"
+}

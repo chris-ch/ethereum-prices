@@ -2,10 +2,8 @@ provider "aws" {
   region = var.aws_region
 }
 
-
 locals {
-  hello_lambda_dir_name       = "scripts/hello"
-
+  external_libs = "${var.deployment_staging}/ext-libs"
   lambda_functions = {
       "${var.aws_stage}-hello"       = "scripts/hello"
   }
@@ -17,6 +15,7 @@ module "lambda_function" {
   function_name = each.key
   function_path = each.value
   timeout = 60
+  deployment_staging   = var.deployment_staging
   environment_variables = {
     "DERIBIT_CLIENT_ID": var.deribit_client_id,
     "DERIBIT_CLIENT_SECRET": var.deribit_client_secret,
@@ -24,42 +23,35 @@ module "lambda_function" {
   }
 }
 
-# resource "null_resource" "project_lib_" {
-# 	  triggers = {
-#       script_hash = sha256(var.exe_path)
-# 	  }
-	
-# 	  provisioner "local-exec" {
-# 	    command = <<EOF
-# 	    yarn config set no-progress
-# 	    yarn
-# 	    mkdir -p nodejs
-# 	    cp -r node_modules nodejs/
-# 	    rm -r node_modules
-# 	    EOF
-	
+data "archive_file" "lambda_external_libs" {
+  type        = "zip"
+  output_path = "${var.deployment_staging}/lambda-external-libs.zip"
+  source_dir = "${local.external_libs}"
+  depends_on = [null_resource.sync_ext_libs]
+}
 
-# 	    working_dir = "${path.module}/${var.code_location}"
-# 	  }
-# }
 data "aws_caller_identity" "current" {}
 
-resource "aws_s3_bucket" "lambda_layers" {
-  bucket = "${var.aws_stage}-lambda-layers-${data.aws_caller_identity.current.account_id}"
+resource "aws_s3_bucket" "lambda_layer" {
+  bucket = "${var.aws_stage}-lambda-layer-${data.aws_caller_identity.current.account_id}"
 
   tags = {
     Environment = var.aws_stage
   }
 }
 
-# resource "aws_s3_object" "layer_project_lib" {
-#   bucket = aws_s3_bucket.lambda_layers
-# 	  key    = "${var.aws_stage}-project-lib"
-# 	  source = data.archive_file.main.output_path
-# 	  etag   = data.archive_file.main.output_base64sha256
+resource "null_resource" "sync_ext_libs" {
+  triggers = {
+    script_hash = sha256("${var.deployment_staging}/requirements.txt")
+  }
+  provisioner "local-exec" {
+    command = "mkdir -p ${var.deployment_staging} && poetry export --format='requirements.txt' > ${var.deployment_staging}/requirements.txt && pip install --requirement ${var.deployment_staging}/requirements.txt --target ${var.deployment_staging}/ext-libs"
+  }
+}
 
-# 	  depends_on = [
-# 	    data.archive_file.main,
-# 	    null_resource.main,
-# 	  ]
-# }
+resource "aws_s3_object" "lambda_layer_zip" {
+  bucket     = aws_s3_bucket.lambda_layer.id
+  key        = "external-libs.zip"
+  source     = "${var.deployment_staging}/lambda-external-libs.zip"
+  depends_on = [ data.archive_file.lambda_external_libs ]
+}

@@ -13,3 +13,7 @@ variable "environment_variables" {
 variable "timeout" {
   type = number
 }
+
+variable "deployment_staging" {
+  type = string
+}
