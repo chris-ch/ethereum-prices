@@ -17,3 +17,7 @@ variable "timeout" {
 variable "deployment_staging" {
   type = string
 }
+
+variable "layers" {
+  type = set(string)
+}

@@ -7,18 +7,19 @@ locals {
 
 resource "null_resource" "sync_deployment_files" {
   for_each = local.lambda_files
-    triggers = {
-      script_hash = sha256(each.value)
-    }
-   provisioner "local-exec" {
-     command = "mkdir -p ${var.deployment_staging}/${var.function_name} && cp ${each.value} ${var.deployment_staging}/${var.function_name}/${basename(each.value)}"
-   }
+  triggers = {
+    script_hash = sha256(each.value)
+  }
+  provisioner "local-exec" {
+    command = "rm -f ${var.deployment_staging}/${var.function_name}/${basename(each.value)} && mkdir -p ${var.deployment_staging}/${var.function_name} && cp ${each.value} ${var.deployment_staging}/${var.function_name}/${basename(each.value)}"
+  }
 }
 
 data "archive_file" "lambda_package" {
   type        = "zip"
   output_path = "${var.deployment_staging}/lambda-${var.function_name}.zip"
   source_dir = "${var.deployment_staging}/${var.function_name}"
+  depends_on = [null_resource.sync_deployment_files]
 }
 
 resource "aws_lambda_function" "lambda_function" {
@@ -29,10 +30,10 @@ resource "aws_lambda_function" "lambda_function" {
   runtime          = "python3.12"
   source_code_hash = data.archive_file.lambda_package.output_base64sha256
   timeout          = var.timeout
+  layers = var.layers
   environment {
     variables = var.environment_variables
   }
-
   depends_on = [
     data.archive_file.lambda_package
   ]

@@ -7,6 +7,7 @@ locals {
   lambda_functions = {
       "${var.aws_stage}-hello"       = "scripts/hello"
   }
+  lambda_layers = ["arrow", "pandas"]
 }
 
 module "lambda_function" { 
@@ -16,6 +17,7 @@ module "lambda_function" {
   function_path = each.value
   timeout = 60
   deployment_staging   = var.deployment_staging
+  layers = [module.lambda_layer["pandas"].arn]
   environment_variables = {
     "DERIBIT_CLIENT_ID": var.deribit_client_id,
     "DERIBIT_CLIENT_SECRET": var.deribit_client_secret,
@@ -23,35 +25,21 @@ module "lambda_function" {
   }
 }
 
-data "archive_file" "lambda_external_libs" {
-  type        = "zip"
-  output_path = "${var.deployment_staging}/lambda-external-libs.zip"
-  source_dir = "${local.external_libs}"
-  depends_on = [null_resource.sync_ext_libs]
-}
-
 data "aws_caller_identity" "current" {}
 
-resource "aws_s3_bucket" "lambda_layer" {
-  bucket = "${var.aws_stage}-lambda-layer-${data.aws_caller_identity.current.account_id}"
+resource "aws_s3_bucket" "lambda_layers_ext_libs" {
+  bucket = "${var.aws_stage}-lambda-layers-${data.aws_caller_identity.current.account_id}"
 
   tags = {
     Environment = var.aws_stage
   }
 }
 
-resource "null_resource" "sync_ext_libs" {
-  triggers = {
-    script_hash = sha256("${var.deployment_staging}/requirements.txt")
-  }
-  provisioner "local-exec" {
-    command = "mkdir -p ${var.deployment_staging} && poetry export --format='requirements.txt' > ${var.deployment_staging}/requirements.txt && pip install --requirement ${var.deployment_staging}/requirements.txt --target ${var.deployment_staging}/ext-libs"
-  }
-}
-
-resource "aws_s3_object" "lambda_layer_zip" {
-  bucket     = aws_s3_bucket.lambda_layer.id
-  key        = "external-libs.zip"
-  source     = "${var.deployment_staging}/lambda-external-libs.zip"
-  depends_on = [ data.archive_file.lambda_external_libs ]
+module "lambda_layer" {
+  source = "./aws-layer"
+  for_each = toset(local.lambda_layers)
+  poetry_group = each.value
+  deployment_staging = var.deployment_staging
+  layer_bucket_name = aws_s3_bucket.lambda_layers_ext_libs.id
+  aws_stage = var.aws_stage
 }

@@ -1277,13 +1277,13 @@ test = ["jupyter-server (>=2.0.0)", "pytest (>=7.0)", "pytest-jupyter[server] (>
 
 [[package]]
 name = "jupyterlab"
-version = "4.0.11"
+version = "4.0.12"
 description = "JupyterLab computational environment"
 optional = false
 python-versions = ">=3.8"
 files = [
-    {file = "jupyterlab-4.0.11-py3-none-any.whl", hash = "sha256:536bf0e78723153a5016ca7efb88ed0ecd7070d3f1555d5b0e2770658f900a3c"},
-    {file = "jupyterlab-4.0.11.tar.gz", hash = "sha256:d1aec24712566bc25a36229788242778e498ca4088028e2f9aa156b8b7fdc8fc"},
+    {file = "jupyterlab-4.0.12-py3-none-any.whl", hash = "sha256:53f132480e5f6564f4e20d1b5ed4e8b7945952a2decd5bdfa43760b1b536c99d"},
+    {file = "jupyterlab-4.0.12.tar.gz", hash = "sha256:965d92efa82a538ed70ccb3968d9aabba788840da882e13d7b061780cdedc3b7"},
 ]
 
 [package.dependencies]
@@ -3614,4 +3614,4 @@ testing = ["big-O", "jaraco.functools", "jaraco.itertools", "more-itertools", "p
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.12"
-content-hash = "2945d0fc8087983df2467d8cbc6b9ab063b69737efa1b1a7be9ca902af3365d7"
+content-hash = "0d27e2cee39e3397391535a771afd848aa3b5c5f524acc75acd0955a85bd5ea0"
