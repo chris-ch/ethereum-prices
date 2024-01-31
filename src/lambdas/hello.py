@@ -1,5 +1,4 @@
 import pandas
-import optionspricing
 import binanceprices
 import boto3
 
