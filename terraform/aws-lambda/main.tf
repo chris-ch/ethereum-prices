@@ -1,17 +1,23 @@
 locals {
-  lambda_main = "${path.cwd}/${var.function_path}/lambda.py"
-  lambda_lib_files_relative = fileset("${path.cwd}/src", "*.py")
-  lambda_lib_files = [for lambda_file in local.lambda_lib_files_relative : "${path.cwd}/src/${lambda_file}"]
-  lambda_files = toset(concat(local.lambda_lib_files, [local.lambda_main]))
+  lambda_main = "${path.cwd}/${var.function_path}"
+  #lambda_lib_files_relative = fileset("${path.cwd}/src", "**.py")
+  #lambda_lib_files = [for lambda_file in local.lambda_lib_files_relative : "${path.cwd}/src/${lambda_file}"]
+  lambda_files_path = "${var.deployment_staging}/${var.function_name}"
 }
 
 resource "null_resource" "sync_deployment_files" {
-  for_each = local.lambda_files
+  #for_each = local.lambda_files
   triggers = {
-    script_hash = sha256(each.value)
+    timestamp = timestamp()
+    #script_hash = sha256(each.value)
   }
   provisioner "local-exec" {
-    command = "rm -f ${var.deployment_staging}/${var.function_name}/${basename(each.value)} && mkdir -p ${var.deployment_staging}/${var.function_name} && cp ${each.value} ${var.deployment_staging}/${var.function_name}/${basename(each.value)}"
+    command = <<EOT
+      rm -fr ${local.lambda_files_path} \
+      && mkdir -p ${local.lambda_files_path} \
+      && cp -r ${path.cwd}/src/* ${local.lambda_files_path} \
+      && cp ${local.lambda_main} ${local.lambda_files_path}/.
+      EOT
   }
 }
 
@@ -26,8 +32,8 @@ resource "aws_lambda_function" "lambda_function" {
   filename         = data.archive_file.lambda_package.output_path
   function_name    = var.function_name
   role             = aws_iam_role.lambda_role.arn
-  handler          = "lambda.handler"
-  runtime          = "python3.12"
+  handler          = var.handler
+  runtime          = var.runtime
   source_code_hash = data.archive_file.lambda_package.output_base64sha256
   timeout          = var.timeout
   layers = var.layers

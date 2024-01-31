@@ -5,7 +5,17 @@ provider "aws" {
 locals {
   external_libs = "${var.deployment_staging}/ext-libs"
   lambda_functions = {
-      "${var.aws_stage}-hello"       = "scripts/hello"
+      "hello" = {
+          path = "scripts/lambda-hello.py"
+          handler = "lambda-hello.handler"
+          runtime = "python3.12"
+          timeout = 60
+          environment_variables = {
+            "DERIBIT_CLIENT_ID": var.deribit_client_id,
+            "DERIBIT_CLIENT_SECRET": var.deribit_client_secret,
+            "DERIBIT_BUCKET_POSITIONS": "${var.aws_stage}-deribit-positions"
+          }
+        }
   }
   custom_lambda_layers = ["main"]
   pandas_lambda_layer_arn = "arn:aws:lambda:us-east-1:336392948345:layer:AWSSDKPandas-Python312:1"
@@ -14,16 +24,14 @@ locals {
 module "lambda_function" { 
   source = "./aws-lambda"
   for_each = local.lambda_functions
-  function_name = each.key
-  function_path = each.value
-  timeout = 60
+  function_name = "${var.aws_stage}-${each.key}"
+  function_path = each.value.path
+  handler = each.value.handler
+  runtime = each.value.runtime
+  timeout = each.value.timeout
   deployment_staging   = var.deployment_staging
   layers = [local.pandas_lambda_layer_arn, module.lambda_layer["main"].arn]
-  environment_variables = {
-    "DERIBIT_CLIENT_ID": var.deribit_client_id,
-    "DERIBIT_CLIENT_SECRET": var.deribit_client_secret,
-    "DERIBIT_BUCKET_POSITIONS": "${var.aws_stage}-deribit-positions"
-  }
+  environment_variables = each.value.environment_variables
   depends_on  = [module.lambda_layer]
 }
 

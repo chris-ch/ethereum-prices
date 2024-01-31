@@ -21,3 +21,11 @@ variable "deployment_staging" {
 variable "layers" {
   type = set(string)
 }
+
+variable "handler" {
+  type = string
+}
+
+variable "runtime" {
+  type = string
+}

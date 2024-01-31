@@ -4,8 +4,7 @@ version = "0.1.0"
 description = ""
 authors = ["Christophe Alexandre <christophe.alexandre@pm.me>"]
 packages = [
-    {include = "binanceprices.py", from="src"},
-    {include = "optionspricing.py", from="src"}
+    {include = "**/*.py", from="src"}
 ]
 
 [tool.poetry.dependencies]
@@ -24,6 +23,8 @@ replit-python-lsp-server = {extras = ["yapf", "rope", "pyflakes"], version = "^1
 toml = "^0.10.2"
 jupyter = "^1.0.0"
 matplotlib = "^3.8.2"
+boto3 = "^1.34.31"
+pytest = "^8.0.0"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
