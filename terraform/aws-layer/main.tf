@@ -13,7 +13,8 @@ resource "null_resource" "sync_ext_libs" {
     rm -fr ${local.target_dir} && \
     mkdir -p ${local.target_dir}/python && \
     poetry export --without-hashes --only ${var.poetry_group} --format='requirements.txt' > ${local.requirement_file} && \
-    pip install --requirement ${local.requirement_file} --target ${local.target_dir}/python
+    pip install --requirement ${local.requirement_file} --target ${local.target_dir}/python && \
+    find ${local.target_dir} -type d -name "__pycache__" | xargs rm -rf
     EOT
   }
 }

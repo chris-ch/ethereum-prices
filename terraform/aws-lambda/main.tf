@@ -16,6 +16,7 @@ resource "null_resource" "sync_deployment_files" {
       rm -fr ${local.lambda_files_path} \
       && mkdir -p ${local.lambda_files_path} \
       && cp -r ${path.cwd}/src/* ${local.lambda_files_path} \
+      && find ${local.lambda_files_path} -type d -name "__pycache__" | xargs rm -rf \
       && cp ${local.lambda_main} ${local.lambda_files_path}/.
       EOT
   }
