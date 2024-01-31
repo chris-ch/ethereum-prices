@@ -1,6 +1,5 @@
 import logging
-
-from binanceprices import first_day_of_next_month
+import pandas
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -8,5 +7,5 @@ logger.setLevel(logging.INFO)
 def handler(event, context):
     message = 'Hello {} {}!'.format(event['first_name'], event['last_name'])  
     return { 
-        'message' : f"{message} / {first_day_of_next_month(2023, 1)}"
+        'message' : f"{message} / {pandas.DataFRame([{"id": 1, "name": "test"}])}"
     }

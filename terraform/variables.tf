@@ -8,10 +8,12 @@ variable "aws_stage" {
 
 variable "deribit_client_id" {
   type = string
+  default = "TBD"
 }
 
 variable "deribit_client_secret" {
   type = string
+  default = "TBD"
 }
 
 variable "deployment_staging" {

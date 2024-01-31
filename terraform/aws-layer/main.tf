@@ -1,3 +1,7 @@
+locals {
+    requirement_file = "${var.deployment_staging}/requirements-${var.poetry_group}.txt"
+    target_dir = "${var.deployment_staging}/ext-libs-${var.poetry_group}"
+}
 
 resource "null_resource" "sync_ext_libs" {
   triggers = {
@@ -6,17 +10,17 @@ resource "null_resource" "sync_ext_libs" {
   }
   provisioner "local-exec" {
     command = <<EOT
-    rm -fr ${var.deployment_staging}/ext-libs-${var.poetry_group} && \
-    mkdir -p ${var.deployment_staging}/ext-libs-${var.poetry_group} && \
-    poetry export --only ${var.poetry_group} --format='requirements.txt' > ${var.deployment_staging}/requirements-${var.poetry_group}.txt && \
-    pip install --requirement ${var.deployment_staging}/requirements-${var.poetry_group}.txt --target ${var.deployment_staging}/ext-libs-${var.poetry_group}
+    rm -fr ${local.target_dir} && \
+    mkdir -p ${local.target_dir}/python && \
+    poetry export --without-hashes --only ${var.poetry_group} --format='requirements.txt' > ${local.requirement_file} && \
+    pip install --requirement ${local.requirement_file} --target ${local.target_dir}/python
     EOT
   }
 }
 
 data "archive_file" "lambda_external_libs" {
   type        = "zip"
-  source_dir = "${var.deployment_staging}/ext-libs-${var.poetry_group}"
+  source_dir = local.target_dir
   output_path = "${var.deployment_staging}/lambda-layer-${var.poetry_group}.zip"
   depends_on = [null_resource.sync_ext_libs]
 }
