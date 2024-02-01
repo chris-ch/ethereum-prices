@@ -29,3 +29,7 @@ variable "handler" {
 variable "runtime" {
   type = string
 }
+
+variable "memory_size" {
+  type = number
+}
