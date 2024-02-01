@@ -83,18 +83,16 @@ def load_prices(bucket: str, code: str, count_years: int) -> pandas.DataFrame:
     current_year = datetime.now().year
     df_by_period = []
     for year in range(current_year - count_years, current_year + 1):
-        logging.info(f'\nloading {year}')
+        logging.info(f'loading {year}')
         for month in range(1, 13):
             if year == current_year and month == datetime.now().month:
-                print(f'\ninterrupting at {year}/{month:02d}')
+                logging.info(f'interrupting at {year}/{month:02d}')
                 break
-            print('.', end='')
             df = load_prices_by_month(bucket, code, year, month)
             df = df.drop(
                 ['closeTime', 'quoteAssetVolume', 'numberOfTrades', 'takerBuyBaseVol', 'takerBuyQuoteVol', 'ignore'],
                 axis=1)
             df_by_period.append(df)
-    print()
     
     prices_df = pandas.concat(df_by_period, axis=0)
     prices_df.index = pandas.to_datetime(prices_df.index)

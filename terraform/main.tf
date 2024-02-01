@@ -16,6 +16,15 @@ locals {
             "DERIBIT_BUCKET_POSITIONS": "${var.aws_stage}-deribit-positions"
           }
         }
+      "aggregate-prices" = {
+          path = "scripts/lambda-aggregate-prices.py"
+          handler = "lambda-aggregate-prices.handler"
+          runtime = "python3.12"
+          timeout = 180
+          environment_variables = {
+            "BUCKET_BINANCE_PRICES": aws_s3_bucket.store_binance_prices.bucket
+          }
+        }
   }
   custom_lambda_layers = ["main"]
   pandas_lambda_layer_arn = "arn:aws:lambda:us-east-1:336392948345:layer:AWSSDKPandas-Python312:1"
