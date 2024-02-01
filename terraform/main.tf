@@ -37,6 +37,22 @@ module "lambda_function" {
 
 data "aws_caller_identity" "current" {}
 
+resource "aws_s3_bucket" "store_binance_prices" {
+  bucket = "${var.aws_stage}-binance-prices-${data.aws_caller_identity.current.account_id}"
+
+  tags = {
+    Environment = var.aws_stage
+  }
+}
+
+resource "aws_s3_bucket" "store_unit_testing" {
+  bucket = "${var.aws_stage}-unit-testing-${data.aws_caller_identity.current.account_id}"
+
+  tags = {
+    Environment = var.aws_stage
+  }
+}
+
 resource "aws_s3_bucket" "lambda_layers_ext_libs" {
   bucket = "${var.aws_stage}-lambda-layers-${data.aws_caller_identity.current.account_id}"
 

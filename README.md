@@ -8,3 +8,6 @@ Create an Access Key for your User in the AWS console (top left, "Security crede
 Keep track of the Access Key and its related Secret key. From the command-line run `aws configure`.
 
 
+## Testing
+
+`poetry run pytest`
