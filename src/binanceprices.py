@@ -1,4 +1,5 @@
 import io
+import logging
 from typing import Optional
 import boto3
 import botocore
@@ -31,7 +32,8 @@ def fetch_file(s3, bucket_name: str, filename: str) -> Optional[io.BytesIO]:
         data = io.BytesIO()
         s3.Object(bucket_name, filename).download_fileobj(data)
         return data
-    except botocore.exceptions.ClientError:
+    except botocore.exceptions.ClientError as ce:
+        print(ce)
         return None
 
 
@@ -81,7 +83,7 @@ def load_prices(bucket: str, code: str, count_years: int) -> pandas.DataFrame:
     current_year = datetime.now().year
     df_by_period = []
     for year in range(current_year - count_years, current_year + 1):
-        print(f'\nloading {year}', end=' ')
+        logging.info(f'\nloading {year}')
         for month in range(1, 13):
             if year == current_year and month == datetime.now().month:
                 print(f'\ninterrupting at {year}/{month:02d}')
@@ -92,7 +94,8 @@ def load_prices(bucket: str, code: str, count_years: int) -> pandas.DataFrame:
                 ['closeTime', 'quoteAssetVolume', 'numberOfTrades', 'takerBuyBaseVol', 'takerBuyQuoteVol', 'ignore'],
                 axis=1)
             df_by_period.append(df)
-
+    print()
+    
     prices_df = pandas.concat(df_by_period, axis=0)
     prices_df.index = pandas.to_datetime(prices_df.index)
     return prices_df
