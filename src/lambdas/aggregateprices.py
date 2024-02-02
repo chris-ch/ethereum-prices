@@ -1,4 +1,4 @@
-import asyncio
+import boto3
 import logging
 import os
 
@@ -12,7 +12,12 @@ def handler(event, context):
     instrument_code = event["instrument_code"]
     count_years = event["count_years"]
     logging.info(f"processing event: {event}")
-    df = binanceprices.load_prices(bucket_name, instrument_code, count_years)
+
+    s3 = boto3.resource('s3')
+    df = binanceprices.load_prices(s3, bucket_name, instrument_code, count_years)
+    target_filename = f'{instrument_code}-full.csv.zip'
+    binanceprices.create_file(s3, bucket_name, target_filename, df)
+    # notify slack
     return { 
         'message' : f"loaded {df.index.size} rows"
     }

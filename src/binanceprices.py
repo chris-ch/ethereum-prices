@@ -1,7 +1,6 @@
 import io
 import logging
 from typing import Optional
-import boto3
 import botocore
 from datetime import datetime, timedelta
 
@@ -45,10 +44,9 @@ def create_file(s3, bucket_name: str, filename: str, content: pandas.DataFrame):
     data.close()
 
 
-def load_prices_by_month(bucket_name: str, code: str, year: int, month: int, force_refresh: bool = False) -> pandas.DataFrame:
+def load_prices_by_month(s3, bucket_name: str, code: str, year: int, month: int, force_refresh: bool = False) -> pandas.DataFrame:
     target_path = f'{code}/{year}'
     target_filename = f'{year}-{month:02d}.csv.zip'
-    s3 = boto3.resource('s3')
     
     data_file = fetch_file(s3, bucket_name, f"{target_path}/{target_filename}")
     if data_file is not None and not force_refresh:
@@ -79,7 +77,7 @@ def load_prices_by_month(bucket_name: str, code: str, year: int, month: int, for
     return binance_prices
 
 
-def load_prices(bucket: str, code: str, count_years: int) -> pandas.DataFrame:
+def load_prices(s3, bucket: str, code: str, count_years: int) -> pandas.DataFrame:
     current_year = datetime.now().year
     df_by_period = []
     for year in range(current_year - count_years, current_year + 1):
@@ -88,7 +86,7 @@ def load_prices(bucket: str, code: str, count_years: int) -> pandas.DataFrame:
             if year == current_year and month == datetime.now().month:
                 logging.info(f'interrupting at {year}/{month:02d}')
                 break
-            df = load_prices_by_month(bucket, code, year, month)
+            df = load_prices_by_month(s3, bucket, code, year, month)
             df = df.drop(
                 ['closeTime', 'quoteAssetVolume', 'numberOfTrades', 'takerBuyBaseVol', 'takerBuyQuoteVol', 'ignore'],
                 axis=1)
