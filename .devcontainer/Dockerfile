@@ -11,6 +11,8 @@ RUN \
         vim \
         sudo \
         jq \
+        less \
+        mandoc \
         curl \
         git
 
