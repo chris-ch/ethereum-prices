@@ -44,15 +44,15 @@ def create_file(s3, bucket_name: str, filename: str, content: pandas.DataFrame):
     data.close()
 
 
-def load_prices_by_month(s3, bucket_name: str, code: str, year: int, month: int, force_refresh: bool = False) -> pandas.DataFrame:
+def load_prices_by_month(s3, bucket_name: str, code: str, year: int, month: int, force_refresh: bool = False, no_update: bool = False) -> Optional[pandas.DataFrame]:
     target_path = f'{code}/{year}'
     target_filename = f'{year}-{month:02d}.csv.zip'
     
     data_file = fetch_file(s3, bucket_name, f"{target_path}/{target_filename}")
     if data_file is not None and not force_refresh:
         binance_prices = pandas.read_csv(data_file, compression='zip', header=0)
-    else:
-        print(f'no previous data found in {target_path}, loading from binance')
+    elif not no_update:
+        logging.info(f'no previous data found in {target_path}, loading from binance')
         binance_client = binance.Client()
         from_date = datetime(year, month, 1, 0, 0, 0)
         until_date = first_day_of_next_month(year, month) - timedelta(seconds=1)
@@ -66,6 +66,9 @@ def load_prices_by_month(s3, bucket_name: str, code: str, year: int, month: int,
                                                    'ignore'])
         create_file(s3, bucket_name, f"{target_path}/{target_filename}", binance_prices)
 
+    else:
+        return None
+
     # as timestamp is returned in ms, let us convert this back to proper timestamps.
     binance_prices['open'] = binance_prices['open'].astype(float)
     binance_prices['high'] = binance_prices['high'].astype(float)
@@ -77,7 +80,7 @@ def load_prices_by_month(s3, bucket_name: str, code: str, year: int, month: int,
     return binance_prices
 
 
-def load_prices(s3, bucket: str, code: str, count_years: int) -> pandas.DataFrame:
+def load_prices(s3, bucket: str, code: str, count_years: int, no_update: bool = False) -> pandas.DataFrame:
     current_year = datetime.now().year
     df_by_period = []
     for year in range(current_year - count_years, current_year + 1):
@@ -86,11 +89,14 @@ def load_prices(s3, bucket: str, code: str, count_years: int) -> pandas.DataFram
             if year == current_year and month == datetime.now().month:
                 logging.info(f'interrupting at {year}/{month:02d}')
                 break
-            df = load_prices_by_month(s3, bucket, code, year, month)
-            df = df.drop(
-                ['closeTime', 'quoteAssetVolume', 'numberOfTrades', 'takerBuyBaseVol', 'takerBuyQuoteVol', 'ignore'],
-                axis=1)
-            df_by_period.append(df)
+            df = load_prices_by_month(s3, bucket, code, year, month, no_update=no_update)
+            if df is not None:
+                df = df.drop(
+                    ['closeTime', 'quoteAssetVolume', 'numberOfTrades', 'takerBuyBaseVol', 'takerBuyQuoteVol', 'ignore'],
+                    axis=1)
+                df_by_period.append(df)
+            else:
+                logging.warning(f"missing data in S3 for {code} {year}/{month}")
     
     prices_df = pandas.concat(df_by_period, axis=0)
     prices_df.index = pandas.to_datetime(prices_df.index)

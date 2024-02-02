@@ -24,7 +24,8 @@ locals {
           timeout = 180
           memory_size = 256
           environment_variables = {
-            "BUCKET_BINANCE_PRICES": aws_s3_bucket.store_binance_prices.bucket
+            "BUCKET_BINANCE_PRICES": aws_s3_bucket.store_binance_prices.bucket,
+            "BINANCE_PRICES_UPDATE": "false"
           }
         }
   }
