@@ -170,3 +170,5 @@ replit.nix
 .DS_Store/
 
 terraform.tfstate*
+.env
+.env*

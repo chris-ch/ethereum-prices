@@ -16,7 +16,7 @@ def handler(event, context):
     logging.info(f"processing event: {event}")
 
     s3 = boto3.resource('s3')
-    df = binanceprices.load_prices(s3, bucket_name, instrument_code, count_years, no_update=no_update)
+    df = binanceprices.load_prices(s3, bucket_name, instrument_code, count_years, no_update=no_update).reset_index()
     target_filename = f'{instrument_code}-full.csv.zip'
     binanceprices.create_file(s3, bucket_name, target_filename, df)
     message = f"saved {target_filename} to bucket {bucket_name} ({df.index.size} rows)"

@@ -10,13 +10,16 @@ Keep track of the Access Key and its related Secret key. From the command-line r
 Environment variables required for the project:
 
 ```
-export AWS_ACCESS_KEY_ID=
-export AWS_DEFAULT_REGION=
-export AWS_SECRET_ACCESS_KEY=
-export DERIBIT_CLIENT_ID=
-export DERIBIT_CLIENT_SECRET=
-export SLACK_WEBHOOK_URL=
-export TF_VAR_slack_webhook_url=${SLACK_WEBHOOK_URL}
+cat > .env <<EOT
+TF_VAR_aws_stage=test
+AWS_ACCESS_KEY_ID=xxxx
+AWS_DEFAULT_REGION=us-east-1
+AWS_SECRET_ACCESS_KEY=xxxx
+DERIBIT_CLIENT_ID=xxxx
+DERIBIT_CLIENT_SECRET=xxxx
+SLACK_WEBHOOK_URL=xxxx
+TF_VAR_slack_webhook_url=${SLACK_WEBHOOK_URL}
+EOT
 ```
 
 Manually initialize terraform:

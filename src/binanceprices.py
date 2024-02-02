@@ -1,11 +1,12 @@
 import io
 import logging
 from typing import Optional
-import botocore
 from datetime import datetime, timedelta
 
 import binance
 import pandas
+
+from helpers import fetch_object
 
 
 def first_day_of_next_month(year: int, month: int) -> datetime:
@@ -26,16 +27,6 @@ def first_day_of_next_month(year: int, month: int) -> datetime:
     return datetime(year, next_month, 1)
 
 
-def fetch_file(s3, bucket_name: str, filename: str) -> Optional[io.BytesIO]:
-    try:
-        data = io.BytesIO()
-        s3.Object(bucket_name, filename).download_fileobj(data)
-        return data
-    except botocore.exceptions.ClientError as ce:
-        print(ce)
-        return None
-
-
 def create_file(s3, bucket_name: str, filename: str, content: pandas.DataFrame):
     data = io.BytesIO()
     content.to_csv(data, index=False, compression="zip")
@@ -48,7 +39,7 @@ def load_prices_by_month(s3, bucket_name: str, code: str, year: int, month: int,
     target_path = f'{code}/{year}'
     target_filename = f'{year}-{month:02d}.csv.zip'
     
-    data_file = fetch_file(s3, bucket_name, f"{target_path}/{target_filename}")
+    data_file = fetch_object(s3, bucket_name, f"{target_path}/{target_filename}")
     if data_file is not None and not force_refresh:
         binance_prices = pandas.read_csv(data_file, compression='zip', header=0)
     elif not no_update:

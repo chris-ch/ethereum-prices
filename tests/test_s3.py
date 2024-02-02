@@ -3,7 +3,8 @@ import unittest
 import boto3
 import pandas 
 
-from binanceprices import create_file, fetch_file
+from binanceprices import create_file
+from helpers import fetch_object
 
 class S3AccessTestCase(unittest.TestCase):
     def setUp(self):
@@ -15,13 +16,13 @@ class S3AccessTestCase(unittest.TestCase):
 
     def test_s3_load_existing_object(self):
         s3 = boto3.resource('s3')
-        data = fetch_file(s3, f"{self._aws_stage}-binance-prices-{self._account_id}", "ETHUSDT/2023/2023-12.csv.zip")
+        data = fetch_object(s3, f"{self._aws_stage}-binance-prices-{self._account_id}", "ETHUSDT/2023/2023-12.csv.zip")
         df = pandas.read_csv(data, compression="zip")
         self.assertEqual(df.index.size, 744)
 
     def test_s3_load_non_existing_object(self):
         s3 = boto3.resource('s3')
-        data = fetch_file(s3, f"{self._aws_stage}-binance-prices-{self._account_id}", "dummy")
+        data = fetch_object(s3, f"{self._aws_stage}-binance-prices-{self._account_id}", "dummy")
         self.assertIsNone(data)
 
     def test_s3_write_object(self):
