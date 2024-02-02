@@ -25,7 +25,8 @@ locals {
           memory_size = 256
           environment_variables = {
             "BUCKET_BINANCE_PRICES": aws_s3_bucket.store_binance_prices.bucket,
-            "BINANCE_PRICES_UPDATE": "false"
+            "BINANCE_PRICES_UPDATE": "false",
+            "SLACK_WEBHOOK_URL": var.slack_webhook_url
           }
         }
   }

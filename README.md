@@ -16,6 +16,7 @@ export AWS_SECRET_ACCESS_KEY=
 export DERIBIT_CLIENT_ID=
 export DERIBIT_CLIENT_SECRET=
 export SLACK_WEBHOOK_URL=
+export TF_VAR_slack_webhook_url=${SLACK_WEBHOOK_URL}
 ```
 
 Manually initialize terraform:
