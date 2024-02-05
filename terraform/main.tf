@@ -6,8 +6,8 @@ locals {
   external_libs = "${var.deployment_staging}/ext-libs"
   lambda_functions = {
       "hello" = {
-          path = "scripts/lambda-hello.py"
-          handler = "lambda-hello.handler"
+          path = "src/lambdas/hello.py"
+          handler = "lambdas.hello.handler"
           runtime = "python3.12"
           timeout = 60
           memory_size = 128
@@ -16,16 +16,28 @@ locals {
             "DERIBIT_CLIENT_SECRET": var.deribit_client_secret,
             "DERIBIT_BUCKET_POSITIONS": "${var.aws_stage}-deribit-positions"
           }
-        }
+        },
       "aggregate-prices" = {
-          path = "scripts/lambda-aggregate-prices.py"
-          handler = "lambda-aggregate-prices.handler"
+          path = "src/lambdas/aggregateprices.py"
+          handler = "lambdas.aggregateprices.handler"
           runtime = "python3.12"
           timeout = 180
           memory_size = 256
           environment_variables = {
             "BUCKET_BINANCE_PRICES": aws_s3_bucket.store_binance_prices.bucket,
             "BINANCE_PRICES_UPDATE": "false",
+            "SLACK_WEBHOOK_URL": var.slack_webhook_url
+          }
+        },
+      "evalutate-options" = {
+          path = "src/lambdas/evaluateoptions.py"
+          handler = "lambdas.evaluateoptions.handler"
+          runtime = "python3.12"
+          timeout = 30
+          memory_size = 256
+          environment_variables = {
+            "BUCKET_BINANCE_PRICES": aws_s3_bucket.store_binance_prices.bucket,
+            "CUT_OFF_YEAR_MONTH": "202201",
             "SLACK_WEBHOOK_URL": var.slack_webhook_url
           }
         }

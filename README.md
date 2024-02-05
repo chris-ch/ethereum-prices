@@ -9,9 +9,10 @@ Keep track of the Access Key and its related Secret key. From the command-line r
 
 Environment variables required for the project:
 
-```
+```shell
 cat > .env <<EOT
 TF_VAR_aws_stage=test
+TF_VAR_aws_region=us-east-1
 AWS_ACCESS_KEY_ID=xxxx
 AWS_DEFAULT_REGION=us-east-1
 AWS_SECRET_ACCESS_KEY=xxxx
@@ -22,11 +23,17 @@ TF_VAR_slack_webhook_url=${SLACK_WEBHOOK_URL}
 EOT
 ```
 
-Manually initialize terraform:
+Manually setting variables from `.env`:
+
+```shell
+export $(cat .env | grep -v '^#' | xargs)
 ```
-export TF_VAR_aws_stage=test\n" >> /home/python/.bashrc
-export TF_VAR_aws_region=us-east-1\n" >> /home/python/.bashrc
-export TF_VAR_aws_account_id=$(aws sts get-caller-identity | jq -r '.Account')\n" >> /home/python/.bashrc
+
+Manually initialize terraform:
+```shell
+export TF_VAR_aws_stage="test"
+export TF_VAR_aws_region="us-east-1"
+export TF_VAR_aws_account_id="$(aws sts get-caller-identity | jq -r '.Account')"
 ```
 
 ## Testing
