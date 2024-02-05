@@ -74,7 +74,7 @@ class TradingScenario:
 
     def __repr__(self):
         rows = [
-            f'target expiry: {self._target_expiry.astimezone(timezone.utc)} ({self._remaining_hours} hours left)',
+            f'target expiry: {self._target_expiry.astimezone(timezone.utc).strftime("%a %d %b, %H:%M")} ({self._remaining_hours} hours left)',
             f'current price: {self._underlying_price}'
         ]
         for case in self._cases:
