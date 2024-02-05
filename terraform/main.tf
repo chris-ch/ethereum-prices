@@ -29,7 +29,7 @@ locals {
             "SLACK_WEBHOOK_URL": var.slack_webhook_url
           }
         },
-      "evalutate-options" = {
+      "evaluate-options" = {
           path = "src/lambdas/evaluateoptions.py"
           handler = "lambdas.evaluateoptions.handler"
           runtime = "python3.12"
@@ -44,6 +44,29 @@ locals {
   }
   custom_lambda_layers = ["main"]
   pandas_lambda_layer_arn = "arn:aws:lambda:us-east-1:336392948345:layer:AWSSDKPandas-Python312:1"
+
+  lambda_schedules = {
+      "evaluate-options-2-days" = {
+          target_function = module.lambda_function["evaluate-options"]
+          schedule_expression = "cron(15 * * * ? *)"
+          payload = jsonencode({
+            binance_symbol = "ETHUSDT"
+            strikes_universe_size = 4
+            target_period_hours = 48
+          })
+          description = "Schedule for options valuations"
+      },
+      "evaluate-options-3-days" = {
+          target_function = module.lambda_function["evaluate-options"]
+          schedule_expression = "cron(45 * * * ? *)"
+          payload = jsonencode({
+            binance_symbol = "ETHUSDT"
+            strikes_universe_size = 4
+            target_period_hours = 72
+          })
+          description = "Schedule for options valuations"
+      }
+  }
 }
 
 module "lambda_function" { 
@@ -94,4 +117,14 @@ module "lambda_layer" {
   deployment_staging = var.deployment_staging
   layer_bucket_name = aws_s3_bucket.lambda_layers_ext_libs.id
   aws_stage = var.aws_stage
+}
+
+module "aws_lambda_schedule" {
+  source = "./aws-lambda-schedule"
+  for_each = local.lambda_schedules
+  target_function = each.value.target_function
+  schedule_expression = each.value.schedule_expression
+  payload = each.value.payload
+  description = each.value.description
+  name = "${var.aws_stage}-${each.key}"
 }
