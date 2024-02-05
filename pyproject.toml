@@ -34,3 +34,4 @@ build-backend = "poetry.core.masonry.api"
 [tool.poetry.scripts]
 aggregate-prices = "scripts.aggregate-prices:main"
 evaluate-options = "scripts.evaluate-options:main"
+deribit-account = "scripts.deribit-account:main"

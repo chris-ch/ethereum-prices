@@ -10,7 +10,7 @@ from lambdas import evaluateoptions
 def main():
     dotenv.load_dotenv()
     setup_logging_levels()
-    parser = argparse.ArgumentParser(description='Matching stock codes from various systems',
+    parser = argparse.ArgumentParser(description='Evaluating options',
                                      formatter_class=argparse.ArgumentDefaultsHelpFormatter
                                      )
     parser.add_argument("-b", "--bucket-name", required=True, action="store", type=str, dest="bucket_name", help="AWS S3 Bucket name for storing prices")
