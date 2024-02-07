@@ -43,3 +43,5 @@ export TF_VAR_aws_account_id="$(aws sts get-caller-identity | jq -r '.Account')"
 ## Scripts
 
 `poetry run aggregate-prices --bucket-name=test-binance-prices-255120844515 --instrument-code=BTCUSDT --count-years=6`
+
+`poetry run deribit-account -i $DERIBIT_CLIENT_ID -s $DERIBIT_CLIENT_SECRET --currency ETH`

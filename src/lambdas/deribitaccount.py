@@ -26,7 +26,6 @@ def get_bearer_token(auth_url: str, api_key: str, api_secret: str):
     }
     response = requests.get(auth_url, headers=headers, params=data)
     token_data = response.json()
-    logging.info(f"authentication result: {token_data}")
     return token_data.get('result', {}).get('access_token', None)
 
 
@@ -54,7 +53,9 @@ def handler(event, context):
     account_summary_url = f"{private_url}/get_account_summary"
 
     bearer_token = get_bearer_token(auth_url, api_key, api_secret)
-    logging.info(f"bearer token: {bearer_token}")
+    if not bearer_token:
+        raise ValueError("failed to authenticate")
+ 
     account_summary = get_account_summary(account_summary_url, bearer_token, currency)
     
     message = f"""{account_summary}"""

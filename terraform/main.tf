@@ -46,23 +46,13 @@ locals {
   pandas_lambda_layer_arn = "arn:aws:lambda:us-east-1:336392948345:layer:AWSSDKPandas-Python312:1"
 
   lambda_schedules = {
-      "evaluate-options-2-days" = {
-          target_function = module.lambda_function["evaluate-options"]
-          schedule_expression = "cron(15 * * * ? *)"
-          payload = jsonencode({
-            binance_symbol = "ETHUSDT"
-            strikes_universe_size = 4
-            target_period_hours = 48
-          })
-          description = "Schedule for options valuations"
-      },
       "evaluate-options-3-days" = {
           target_function = module.lambda_function["evaluate-options"]
-          schedule_expression = "cron(45 * * * ? *)"
+          schedule_expression = "cron(45 23 * * ? *)"
           payload = jsonencode({
             binance_symbol = "ETHUSDT"
             strikes_universe_size = 4
-            target_period_hours = 72
+            target_period_hours = 60
           })
           description = "Schedule for options valuations"
       }
