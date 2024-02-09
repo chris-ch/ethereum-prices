@@ -72,6 +72,26 @@ class TradingScenario:
     def options_chain(self):
         return self._options_chain
 
+    def evaluate_call(self, strike_price: int):
+        target_option_strike = float(strike_price)
+        target_option_type = "call"
+        return self.options_chain.loc[target_option_strike][f"value_{target_option_type}"]
+
+    def get_call_bid(self, strike_price: int):
+        target_option_strike = float(strike_price)
+        target_option_type = "call"
+        return self.options_chain.loc[target_option_strike][f"{target_option_type}_bid"] * self._underlying_price
+    
+    def evaluate_put(self, strike_price: int):
+        target_option_strike = float(strike_price)
+        target_option_type = "put"
+        return self.options_chain.loc[target_option_strike][f"value_{target_option_type}"]
+
+    def get_put_bid(self, strike_price: int):
+        target_option_strike = float(strike_price)
+        target_option_type = "put"
+        return self.options_chain.loc[target_option_strike][f"{target_option_type}_bid"] * self._underlying_price
+    
     def __repr__(self):
         rows = [
             f'target expiry: {self._target_expiry.astimezone(timezone.utc).strftime("%a %d %b, %H:%M")} ({self._remaining_hours} hours left)',
@@ -164,6 +184,7 @@ class TradingModel:
         self._remaining_hours = int(round((self._target_expiry - datetime.now()).total_seconds() / 3600, 0))
         self._cutoff_year_month = None
         self._valuation = None
+        self._strike_prices = None
 
     def cutoff_year_month(self, year_month: Tuple[int, int]):
         self._cutoff_year_month = year_month
@@ -180,7 +201,7 @@ class TradingModel:
             df = df.loc[map(lambda ind: (ind.year, ind.month) >= self._cutoff_year_month, df.index)]
 
         strike_prices = generate_strikes(self.underlying_price, self.put_strikes, strikes_universe_size)
-
+        self._strike_prices = strike_prices
         for count, strike_price in enumerate(strike_prices, start=1):
             strike_factor = strike_price / self.underlying_price
             df[f'strike_{count}'] = df['prices'].multiply(strike_factor)
@@ -205,9 +226,11 @@ class TradingModel:
                 'strike': strike_price,
                 'value_call': df[f'call_value_pct_{count}'].mean() * self.underlying_price,
                 'value_call_pct': df[f'call_value_pct_{count}'].mean(),
+                'call_bid': call_bid,
                 'call_ask': call_ask,
                 'value_put': df[f'put_value_pct_{count}'].mean() * self.underlying_price,
                 'value_put_pct': df[f'put_value_pct_{count}'].mean(),
+                'put_bid': put_bid,
                 'put_ask': put_ask
             }
             if strike_price < self.underlying_price:
@@ -227,6 +250,10 @@ class TradingModel:
     @property
     def calls(self):
         return self._calls
+
+    @property
+    def strike_prices(self):
+        return self._strike_prices
 
     @property
     def put_strikes(self):
