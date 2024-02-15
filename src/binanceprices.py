@@ -39,7 +39,7 @@ def load_prices_by_month(s3, bucket_name: str, code: str, year: int, month: int,
     target_path = f'{code}/{year}'
     target_filename = f'{year}-{month:02d}.csv.zip'
     
-    data_file = fetch_object(s3, bucket_name, f"{target_path}/{target_filename}")
+    data_file = fetch_object(s3, bucket_name, f"{target_path}/{target_filename}", ignore_fail=True)
     if data_file is not None and not force_refresh:
         binance_prices = pandas.read_csv(data_file, compression='zip', header=0)
     elif not no_update:

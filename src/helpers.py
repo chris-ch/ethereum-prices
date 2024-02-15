@@ -25,11 +25,13 @@ def notify_slack(message: str) -> Optional[requests.Response]:
     return response
 
 
-def fetch_object(s3, bucket_name: str, filename: str) -> Optional[io.BytesIO]:
+def fetch_object(s3, bucket_name: str, filename: str, ignore_fail: bool=False) -> Optional[io.BytesIO]:
     try:
         data = io.BytesIO()
         s3.Object(bucket_name, filename).download_fileobj(data)
         return data
     except botocore.exceptions.ClientError as ce:
-        logging.error(f"failed to load {bucket_name}:{filename}", ce)
+        if not ignore_fail:
+            logging.error(f"failed to load {bucket_name}:{filename}, %s", exc_info=ce)
+            
         return None
