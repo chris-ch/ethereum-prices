@@ -1,4 +1,5 @@
 import os
+import logging
 from datetime import date, datetime, timedelta, timezone
 from typing import Dict, Tuple, List
 
@@ -41,7 +42,14 @@ def load_current_price(base_url: str, headers: Dict[str, str], instrument_code: 
 
 
 def load_options(base_url: str, headers: Dict[str, str], instrument_code: str):
-    get_options = f"{base_url}/get_instruments?currency={instrument_code}&kind=option&expired=false"
+    if instrument_code in ('SOL', ):
+        currency_code = 'USDC'
+        
+    else:
+        currency_code = instrument_code
+        
+    get_options = f"{base_url}/get_instruments?currency={currency_code}&kind=option&expired=false"
+    logging.warning(f"calling option chain: {get_options}")
     response_options = requests.get(get_options, headers=headers)
     if response_options.status_code != 200:
         raise IOError(f'request failed with error {response_options.status_code}')
@@ -50,12 +58,12 @@ def load_options(base_url: str, headers: Dict[str, str], instrument_code: str):
     puts = {}
     calls = {}
     for option in result:
+        if currency_code == 'USDC' and not option['instrument_name'].startswith('SOL_'):
+            continue
         if option['option_type'] == 'put':
-            puts[(option['strike'], datetime.fromtimestamp(option['expiration_timestamp'] / 1000))] = option[
-                'instrument_id']
+            puts[(option['strike'], datetime.fromtimestamp(option['expiration_timestamp'] / 1000))] = option['instrument_id']
         elif option['option_type'] == 'call':
-            calls[(option['strike'], datetime.fromtimestamp(option['expiration_timestamp'] / 1000))] = option[
-                'instrument_id']
+            calls[(option['strike'], datetime.fromtimestamp(option['expiration_timestamp'] / 1000))] = option['instrument_id']
     return puts, calls
 
 
