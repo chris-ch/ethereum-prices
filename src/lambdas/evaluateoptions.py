@@ -32,7 +32,8 @@ def handler(event, context):
 
     prices_df = pandas.read_csv(data_file, compression='zip', header=0, index_col="dateTime")
     prices_df.index = pandas.to_datetime(prices_df.index)
-    simulation = trading_model.evaluate(prices_df, strikes_universe_size)
+    option_chain_df = trading_model.evaluate(prices_df, strikes_universe_size)
+    simulation = trading_model.simulate_strategy_long_straddle(option_chain_df, strikes_universe_size)
     #allocation = simulation.allocate([1, 2], 1500. * 2./100.)
 
     message = f"""{simulation}"""

@@ -1,20 +1,20 @@
 import os
 import logging
 from datetime import date, datetime, timedelta, timezone
-from typing import Dict, Tuple, List
+from typing import Any, Dict, Set, Tuple, List
 
 import pandas
 import requests
 
 
-def generate_strikes(price: float, option_strikes, count_options):
+def generate_strikes(price: float, option_strikes, count_options) -> List[float]:
     sorted_strikes = sorted(option_strikes)
     closest_strike = min(sorted_strikes, key=lambda s: abs(s - price))
     closest_strike_pos = sorted_strikes.index(closest_strike)
     return sorted_strikes[closest_strike_pos - count_options: closest_strike_pos + count_options + 1]
 
 
-def load_bid_ask(base_url: str, headers: Dict[str, str], options, strike: float, expiry: date) -> Tuple[float, float]:
+def load_bid_ask(base_url: str, headers: Dict[str, str], options: Dict[Tuple[float, datetime], str], strike: float, expiry: datetime) -> Tuple[float, float]:
     instrument_id = options[(strike, expiry)]
     get_bid_ask = f"{base_url}/get_order_book_by_instrument_id?instrument_id={instrument_id}&depth=1"
     response_bid_ask = requests.get(get_bid_ask, headers=headers)
@@ -41,7 +41,7 @@ def load_current_price(base_url: str, headers: Dict[str, str], instrument_code: 
     return response_current_price.json()['result']['index_price']
 
 
-def load_options(base_url: str, headers: Dict[str, str], instrument_code: str):
+def load_options(base_url: str, headers: Dict[str, str], instrument_code: str) -> Tuple[Dict[Tuple[float, datetime], str], Dict[Tuple[float, datetime], str]]:
     if instrument_code in ('SOL', ):
         currency_code = 'USDC'
         
@@ -197,7 +197,7 @@ class TradingModel:
     def cutoff_year_month(self, year_month: Tuple[int, int]):
         self._cutoff_year_month = year_month
 
-    def evaluate(self, prices_df: pandas.DataFrame, strikes_universe_size: int) -> TradingScenario:
+    def evaluate_options(self, prices_df: pandas.DataFrame) -> pandas.DataFrame:
         open_prices = prices_df['open']
         period_close_series = prices_df['close'].shift(-self.remaining_hours)
         df = pandas.DataFrame({
@@ -207,10 +207,8 @@ class TradingModel:
 
         if self._cutoff_year_month is not None:
             df = df.loc[map(lambda ind: (ind.year, ind.month) >= self._cutoff_year_month, df.index)]
-
-        strike_prices = generate_strikes(self.underlying_price, self.put_strikes, strikes_universe_size)
-        self._strike_prices = strike_prices
-        for count, strike_price in enumerate(strike_prices, start=1):
+            
+        for count, strike_price in enumerate(self.strike_prices, start=1):
             strike_factor = strike_price / self.underlying_price
             df[f'strike_{count}'] = df['prices'].multiply(strike_factor)
             df[f'strike_pct_{count}'] = strike_factor * 100.
@@ -223,21 +221,21 @@ class TradingModel:
             df[f'put_value_pct_{count}'] = put_values.divide(df['prices'])
             df.loc[df[f'put_value_pct_{count}'] < 0., f'put_value_pct_{count}'] = 0.
 
-        self._valuation = df
+        return df
 
+    def build_option_chain_data(self) -> pandas.DataFrame:
         option_chain = []
-        for count, strike_price in enumerate(strike_prices, start=1):
+        for count, strike_price in enumerate(self.strike_prices, start=1):
             put_bid, put_ask = load_bid_ask(self._base_url, self._headers, self.puts, strike_price, self.target_expiry)
-            call_bid, call_ask = load_bid_ask(self._base_url, self._headers, self.calls, strike_price,
-                                              self.target_expiry)
+            call_bid, call_ask = load_bid_ask(self._base_url, self._headers, self.calls, strike_price, self.target_expiry)
             strike_data = {
                 'strike': strike_price,
-                'value_call': df[f'call_value_pct_{count}'].mean() * self.underlying_price,
-                'value_call_pct': df[f'call_value_pct_{count}'].mean(),
+                'value_call': self._valuation[f'call_value_pct_{count}'].mean() * self.underlying_price,
+                'value_call_pct': self._valuation[f'call_value_pct_{count}'].mean(),
                 'call_bid': call_bid,
                 'call_ask': call_ask,
-                'value_put': df[f'put_value_pct_{count}'].mean() * self.underlying_price,
-                'value_put_pct': df[f'put_value_pct_{count}'].mean(),
+                'value_put': self._valuation[f'put_value_pct_{count}'].mean() * self.underlying_price,
+                'value_put_pct': self._valuation[f'put_value_pct_{count}'].mean(),
                 'put_bid': put_bid,
                 'put_ask': put_ask
             }
@@ -248,15 +246,26 @@ class TradingModel:
 
             option_chain.append(strike_data)
 
-        option_chain_df = pandas.DataFrame(option_chain).set_index('strike').sort_index()
-        return self.simulation(option_chain_df, strikes_universe_size)
+        return pandas.DataFrame(option_chain).set_index('strike').sort_index()
 
+    def evaluate_long_straddle(self, prices_df: pandas.DataFrame, strikes_universe_size: int) -> TradingScenario:
+        self._strike_prices = generate_strikes(self.underlying_price, self.put_strikes, strikes_universe_size)
+        self._valuation = self.evaluate_options(prices_df)
+        option_chain_df = self.build_option_chain_data()
+        return self.simulate_strategy_long_straddle(option_chain_df, strikes_universe_size)
+
+    def evaluate(self, prices_df: pandas.DataFrame, strikes_universe_size: int) -> TradingScenario:
+        self._strike_prices = generate_strikes(self.underlying_price, self.put_strikes, strikes_universe_size)
+        self._valuation = self.evaluate_options(prices_df)
+        option_chain_df = self.build_option_chain_data()
+        return option_chain_df
+    
     @property
-    def puts(self):
+    def puts(self) -> Dict[Tuple[float, datetime], str]:
         return self._puts
 
     @property
-    def calls(self):
+    def calls(self) -> Dict[Tuple[float, datetime], str]:
         return self._calls
 
     @property
@@ -264,11 +273,11 @@ class TradingModel:
         return self._strike_prices
 
     @property
-    def put_strikes(self):
+    def put_strikes(self) -> Set[float]:
         return self._put_strikes
 
     @property
-    def call_strikes(self):
+    def call_strikes(self) -> Set[float]:
         return self._call_strikes
 
     @property
@@ -280,29 +289,49 @@ class TradingModel:
         return self._remaining_hours
 
     @property
-    def target_expiry(self):
+    def target_expiry(self) -> datetime:
         return self._target_expiry
 
     @property
     def valuation(self):
         return self._valuation
 
-    def simulation(self, option_chain_df: pandas.DataFrame, strikes_universe_size: int):
+    def backtest(self, option_chain_df, put_weights, call_weights):
+        cost = 0.
+        for index, put_call_weight in enumerate(zip(put_weights, call_weights)):
+            put_weight, call_weight = put_call_weight
+            put_prefix = ("bid", "ask")[put_weight > 0]
+            call_prefix = ("bid", "ask")[call_weight > 0]
+            if put_weight != 0.:
+                cost += put_weight * option_chain_df.iloc[index][f"put_{put_prefix}"]
+            if call_weight != 0.:
+                cost += call_weight * option_chain_df.iloc[index][f"call_{call_prefix}"]
+        
+        def calculate_value(row):
+            value_puts = sum(row[f"put_value_pct_{count + 1}"] * weight for count, weight in enumerate(put_weights))
+            value_calls = sum(row[f"call_value_pct_{count + 1}"] * weight for count, weight in enumerate(call_weights))
+            return value_puts + value_calls
+
+        return self.valuation.apply(calculate_value, axis=1), cost
+
+    def simulate_strategy_long_straddle(self, option_chain_df: pandas.DataFrame, strikes_universe_size: int) -> TradingScenario:
         scenario = TradingScenario(self.underlying_price, self.target_expiry, self.remaining_hours, option_chain_df)
-        for count in range(1, strikes_universe_size + 1):
-            index_put = strikes_universe_size - count + 1
+        for count in range(strikes_universe_size):
+            put_weights = [0.] * (2 * strikes_universe_size + 1)
+            call_weights = [0.] * (2 * strikes_universe_size + 1)
+            index_put = strikes_universe_size - count - 1
             index_call = strikes_universe_size + count + 1
-            cost, value = (
-                option_chain_df.iloc[index_put - 1]['put_ask'] + option_chain_df.iloc[index_call - 1]['call_ask'],
-                option_chain_df.iloc[index_put - 1]['value_put_pct'] + option_chain_df.iloc[index_call - 1][
-                    'value_call_pct']
-            )
-            strategy_value_pct = (self.valuation[f"put_value_pct_{index_put}"]
-                                  + self.valuation[f"call_value_pct_{index_call}"])
+            put_weights[index_put] = 1.
+            call_weights[index_call] = 1.
+            
+            strategy_value_pct, cost = self.backtest(option_chain_df, put_weights, call_weights)
+            value = strategy_value_pct.mean()
+            
             hit_ratio = strategy_value_pct.loc[(strategy_value_pct - cost) > 0.].count() / strategy_value_pct.count()
+            
             scenario.add_case(count, hit_ratio,
-                              option_chain_df.iloc[index_put - 1].name,
-                              option_chain_df.iloc[index_call - 1].name,
+                              option_chain_df.iloc[index_put].name,
+                              option_chain_df.iloc[index_call].name,
                               cost,
                               value,
                               value / cost,
