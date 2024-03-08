@@ -1,10 +1,35 @@
 import os
 import logging
-from datetime import date, datetime, timedelta, timezone
-from typing import Any, Dict, Set, Tuple, List
+from datetime import datetime, timedelta, timezone
+from typing import Dict, Set, Tuple, List
 
 import pandas
 import requests
+
+from dataclasses import dataclass, field
+
+
+@dataclass
+class ScenarioRunResult:
+    count: int
+    hit_ratio: float
+    cost: float
+    value: float
+    underlying_price: float
+    option_chain_df: pandas.DataFrame
+    put_weights: List[float]
+    call_weights: List[float]
+    
+    gain_ratio: float = field(init=False)
+    cost_amount: float = field(init=False)
+    value_amount: float = field(init=False)
+    gain_amount: float = field(init=False)
+
+    def __post_init__(self):
+        self.gain_ratio = self.value / self.cost
+        self.cost_amount = self.cost * self.underlying_price
+        self.value_amount = self.value * self.underlying_price
+        self.gain_amount = (self.value - self.cost) * self.underlying_price
 
 
 def generate_strikes(price: float, option_strikes, count_options) -> List[float]:
@@ -99,23 +124,7 @@ class TradingScenario:
         target_option_strike = float(strike_price)
         target_option_type = "put"
         return self.options_chain.loc[target_option_strike][f"{target_option_type}_bid"] * self._underlying_price
-    
-    def __repr__(self):
-        rows = [
-            f'target expiry: {self._target_expiry.astimezone(timezone.utc).strftime("%a %d %b, %H:%M")} ({self._remaining_hours} hours left)',
-            f'current price: {self._underlying_price}'
-        ]
-        for case in self._cases:
-            rows.extend(
-                (
-                    "-------------------------------",
-                    f"trading put {case['put_name']:.0f} and call {case['call_name']:.0f} (hit ratio: {case['hit_ratio']:.0%})",
-                    f"cost: {case['cost']:.3f} / value: {case['value']:.3f}, benefit/cost = {case['gain_ratio']:.1f}x",
-                    f"($) cost: {case['cost_amount']:.2f} / value: {case['value_amount']:.2f}, average gain = {case['gain_amount']:.2f}"
-                )
-            )
-        return os.linesep.join(rows)
-
+   
     def allocate(self, trading_cases: List[int], budget: float):
         if not (set(trading_cases) <= set(range(len(self.cases)))):
             raise ValueError(f'case {trading_cases} are not part of available trading cases')
@@ -132,23 +141,11 @@ class TradingScenario:
 
         return trades
 
-    def add_case(self, count, hit_ratio, put_name, call_name, cost, value, gain_ratio, cost_amount, value_amount, gain_amount):
-        case_dict = {
-            'count': count,
-            'hit_ratio': hit_ratio,
-            'put_name': put_name,
-            'call_name': call_name,
-            'cost': cost,
-            'value': value,
-            'gain_ratio': gain_ratio,
-            'cost_amount': cost_amount,
-            'value_amount': value_amount,
-            'gain_amount': gain_amount
-        }
-        self._cases.append(case_dict)
+    def add_case(self, result: ScenarioRunResult):
+        self._cases.append(result)
 
     @property
-    def cases(self):
+    def cases(self) -> List[ScenarioRunResult]:
         return self._cases
 
     def add_backtest(self, backtest):
@@ -171,6 +168,33 @@ class TradingScenario:
 
         # Calculates the duration of each drawdown
         return drawdown_start.groupby((drawdown_start != drawdown_start.shift()).cumsum()).cumcount() + 1
+
+    def __repr__(self):
+        rows = [
+            f'target expiry: {self._target_expiry.astimezone(timezone.utc).strftime("%a %d %b, %H:%M")} ({self._remaining_hours} hours left)',
+            f'current price: {self._underlying_price}'
+        ]
+        for case in self.cases:
+            trades = []
+            for count, weights in enumerate(zip(case.put_weights, case.call_weights)):
+                weight_put, weight_call = weights
+                if weight_put != 0.:
+                    trade = ("sell", "buy")[weight_put > 0] + f" put {case.option_chain_df.iloc[count].name}"
+                    trades.append(trade)
+                
+                if weight_call != 0.:
+                    trade = ("sell", "buy")[weight_call > 0] + f" call {case.option_chain_df.iloc[count].name}"
+                    trades.append(trade)
+            
+            rows.extend(
+                [
+                    "-------------------------------",
+                    f"hit ratio: {case.hit_ratio:.0%}",
+                    f"cost: {case.cost:.3f} / value: {case.value:.3f}, benefit/cost = {case.gain_ratio:.1f}x",
+                    f"($) cost: {case.cost_amount:.2f} / value: {case.value_amount:.2f}, average gain = {case.gain_amount:.2f}"
+                ] + trades
+            )
+        return os.linesep.join(rows)
 
 
 class TradingModel:
@@ -248,12 +272,6 @@ class TradingModel:
 
         return pandas.DataFrame(option_chain).set_index('strike').sort_index()
 
-    def evaluate_long_straddle(self, prices_df: pandas.DataFrame, strikes_universe_size: int) -> TradingScenario:
-        self._strike_prices = generate_strikes(self.underlying_price, self.put_strikes, strikes_universe_size)
-        self._valuation = self.evaluate_options(prices_df)
-        option_chain_df = self.build_option_chain_data()
-        return self.simulate_strategy_long_straddle(option_chain_df, strikes_universe_size)
-
     def evaluate(self, prices_df: pandas.DataFrame, strikes_universe_size: int) -> TradingScenario:
         self._strike_prices = generate_strikes(self.underlying_price, self.put_strikes, strikes_universe_size)
         self._valuation = self.evaluate_options(prices_df)
@@ -329,17 +347,14 @@ class TradingModel:
             
             hit_ratio = strategy_value_pct.loc[(strategy_value_pct - cost) > 0.].count() / strategy_value_pct.count()
             
-            scenario.add_case(count, hit_ratio,
-                              option_chain_df.iloc[index_put].name,
-                              option_chain_df.iloc[index_call].name,
-                              cost,
-                              value,
-                              value / cost,
-                              cost * self.underlying_price,
-                              value * self.underlying_price,
-                              (value - cost) * self.underlying_price
-                              )
-            ###
+            result = ScenarioRunResult(count, hit_ratio, cost, value,
+                                       underlying_price=self.underlying_price,
+                                       option_chain_df=option_chain_df,
+                                       put_weights=put_weights,
+                                       call_weights=call_weights
+                                       )
+            scenario.add_case(result)
+            
             backtest_current = strategy_value_pct - cost
             backtest_sampled_daily = backtest_current.loc[backtest_current.index.hour == 9]
             scenario.add_backtest(backtest_sampled_daily)
