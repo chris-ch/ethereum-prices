@@ -20,16 +20,16 @@ class ScenarioRunResult:
     put_weights: List[float]
     call_weights: List[float]
     
-    gain_ratio: float = field(init=False)
+    gain_pct: float = field(init=False)
     cost_amount: float = field(init=False)
     value_amount: float = field(init=False)
     gain_amount: float = field(init=False)
 
     def __post_init__(self):
-        self.gain_ratio = self.value / self.cost
         self.cost_amount = self.cost * self.underlying_price
         self.value_amount = self.value * self.underlying_price
         self.gain_amount = (self.value - self.cost) * self.underlying_price
+        self.gain_pct = self.gain_amount / self.underlying_price
 
 
 def generate_strikes(price: float, option_strikes, count_options) -> List[float]:
@@ -190,7 +190,7 @@ class TradingScenario:
                 [
                     "-------------------------------",
                     f"hit ratio: {case.hit_ratio:.0%}",
-                    f"cost: {case.cost:.3f} / value: {case.value:.3f}, benefit/cost = {case.gain_ratio:.1f}x",
+                    f"cost: {case.cost:.3f} / value: {case.value:.3f}, gain% = {case.gain_pct:.2%}",
                     f"($) cost: {case.cost_amount:.2f} / value: {case.value_amount:.2f}, average gain = {case.gain_amount:.2f}"
                 ] + trades
             )
@@ -358,4 +358,24 @@ class TradingModel:
             backtest_current = strategy_value_pct - cost
             backtest_sampled_daily = backtest_current.loc[backtest_current.index.hour == 9]
             scenario.add_backtest(backtest_sampled_daily)
+        return scenario
+
+    def simulate_strategy(self, option_chain_df: pandas.DataFrame, put_weights: List[float], call_weights: List[float]) -> TradingScenario:
+        scenario = TradingScenario(self.underlying_price, self.target_expiry, self.remaining_hours, option_chain_df)        
+        strategy_value_pct, cost = self.backtest(option_chain_df, put_weights, call_weights)
+        value = strategy_value_pct.mean()
+        
+        hit_ratio = strategy_value_pct.loc[(strategy_value_pct - cost) > 0.].count() / strategy_value_pct.count()
+        
+        result = ScenarioRunResult(0, hit_ratio, cost, value,
+                                    underlying_price=self.underlying_price,
+                                    option_chain_df=option_chain_df,
+                                    put_weights=put_weights,
+                                    call_weights=call_weights
+                                    )
+        scenario.add_case(result)
+        
+        backtest_current = strategy_value_pct - cost
+        backtest_sampled_daily = backtest_current.loc[backtest_current.index.hour == 9]
+        scenario.add_backtest(backtest_sampled_daily)
         return scenario
