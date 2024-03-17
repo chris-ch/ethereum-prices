@@ -19,6 +19,7 @@ class ScenarioRunResult:
     option_chain_df: pandas.DataFrame
     put_weights: List[float]
     call_weights: List[float]
+    scale_factor: float
     
     gain_pct: float = field(init=False)
     cost_amount: float = field(init=False)
@@ -26,10 +27,10 @@ class ScenarioRunResult:
     gain_amount: float = field(init=False)
 
     def __post_init__(self):
-        self.cost_amount = self.cost * self.underlying_price
-        self.value_amount = self.value * self.underlying_price
-        self.gain_amount = (self.value - self.cost) * self.underlying_price
-        self.gain_pct = self.gain_amount / self.underlying_price
+        self.cost_amount = self.cost * self.scale_factor
+        self.value_amount = self.value * self.scale_factor
+        self.gain_amount = (self.value - self.cost) * self.scale_factor
+        self.gain_pct = self.gain_amount / self.scale_factor
 
 
 def generate_strikes(price: float, option_strikes, count_options) -> List[float]:
@@ -332,7 +333,9 @@ class TradingModel:
 
         return self.valuation.apply(calculate_value, axis=1), cost
 
-    def simulate_strategy_long_straddle(self, option_chain_df: pandas.DataFrame, strikes_universe_size: int) -> TradingScenario:
+    def simulate_strategy_long_straddle(self, option_chain_df: pandas.DataFrame,
+                                        strikes_universe_size: int,
+                                        quote_in_usd: bool=False) -> TradingScenario:
         scenario = TradingScenario(self.underlying_price, self.target_expiry, self.remaining_hours, option_chain_df)
         for count in range(strikes_universe_size):
             put_weights = [0.] * (2 * strikes_universe_size + 1)
@@ -344,14 +347,20 @@ class TradingModel:
             
             strategy_value_pct, cost = self.backtest(option_chain_df, put_weights, call_weights)
             value = strategy_value_pct.mean()
-            
-            hit_ratio = strategy_value_pct.loc[(strategy_value_pct - cost) > 0.].count() / strategy_value_pct.count()
+            if quote_in_usd:
+                value *= self.underlying_price
+                hit_ratio = strategy_value_pct.loc[(strategy_value_pct - cost / self.underlying_price) > 0.].count() / strategy_value_pct.count()
+                scale_factor = 1.
+            else:   
+                hit_ratio = strategy_value_pct.loc[(strategy_value_pct - cost) > 0.].count() / strategy_value_pct.count()
+                scale_factor =  self.underlying_price
             
             result = ScenarioRunResult(count, hit_ratio, cost, value,
                                        underlying_price=self.underlying_price,
                                        option_chain_df=option_chain_df,
                                        put_weights=put_weights,
-                                       call_weights=call_weights
+                                       call_weights=call_weights,
+                                       scale_factor=scale_factor
                                        )
             scenario.add_case(result)
             
@@ -360,18 +369,28 @@ class TradingModel:
             scenario.add_backtest(backtest_sampled_daily)
         return scenario
 
-    def simulate_strategy(self, option_chain_df: pandas.DataFrame, put_weights: List[float], call_weights: List[float]) -> TradingScenario:
+    def simulate_strategy(self, option_chain_df: pandas.DataFrame,
+                          put_weights: List[float],
+                          call_weights: List[float],
+                          quote_in_usd: bool=False
+                          ) -> TradingScenario:
         scenario = TradingScenario(self.underlying_price, self.target_expiry, self.remaining_hours, option_chain_df)        
         strategy_value_pct, cost = self.backtest(option_chain_df, put_weights, call_weights)
         value = strategy_value_pct.mean()
         
         hit_ratio = strategy_value_pct.loc[(strategy_value_pct - cost) > 0.].count() / strategy_value_pct.count()
         
+        if quote_in_usd:
+            scale_factor = 1.
+        else:
+            scale_factor =  self.underlying_price
+        
         result = ScenarioRunResult(0, hit_ratio, cost, value,
                                     underlying_price=self.underlying_price,
                                     option_chain_df=option_chain_df,
                                     put_weights=put_weights,
-                                    call_weights=call_weights
+                                    call_weights=call_weights,
+                                    scale_factor=scale_factor
                                     )
         scenario.add_case(result)
         
