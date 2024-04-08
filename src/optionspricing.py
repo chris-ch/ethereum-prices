@@ -68,7 +68,7 @@ def load_current_price(base_url: str, headers: Dict[str, str], instrument_code: 
 
 
 def load_options(base_url: str, headers: Dict[str, str], instrument_code: str) -> Tuple[Dict[Tuple[float, datetime], str], Dict[Tuple[float, datetime], str]]:
-    if instrument_code in ('SOL', ):
+    if instrument_code in ('SOL', 'XRP', 'MATIC'):
         currency_code = 'USDC'
         
     else:
@@ -84,7 +84,11 @@ def load_options(base_url: str, headers: Dict[str, str], instrument_code: str) -
     puts = {}
     calls = {}
     for option in result:
-        if currency_code == 'USDC' and not option['instrument_name'].startswith('SOL_'):
+        if currency_code == 'USDC' and not (
+            option['instrument_name'].startswith('SOL_')
+            or option['instrument_name'].startswith('XRP_')
+            or option['instrument_name'].startswith('MATIC_')
+        ):
             continue
         if option['option_type'] == 'put':
             puts[(option['strike'], datetime.fromtimestamp(option['expiration_timestamp'] / 1000))] = option['instrument_id']
@@ -322,8 +326,12 @@ class TradingModel:
             put_prefix = ("bid", "ask")[put_weight > 0]
             call_prefix = ("bid", "ask")[call_weight > 0]
             if put_weight != 0.:
+                if f"put_{put_prefix}" not in option_chain_df.iloc[index]:
+                    raise ValueError(f"put_{put_prefix} not found in option chain")
                 cost += put_weight * option_chain_df.iloc[index][f"put_{put_prefix}"]
             if call_weight != 0.:
+                if f"call_{call_prefix}" not in option_chain_df.iloc[index]:
+                    raise ValueError(f"call_{put_prefix} not found in option chain")
                 cost += call_weight * option_chain_df.iloc[index][f"call_{call_prefix}"]
         
         def calculate_value(row):
@@ -335,7 +343,8 @@ class TradingModel:
 
     def simulate_strategy_long_straddle(self, option_chain_df: pandas.DataFrame,
                                         strikes_universe_size: int,
-                                        quote_in_usd: bool=False) -> TradingScenario:
+                                        quote_in_usd: bool=False,
+                                        price_scale: float=1.0) -> TradingScenario:
         scenario = TradingScenario(self.underlying_price, self.target_expiry, self.remaining_hours, option_chain_df)
         for count in range(strikes_universe_size):
             put_weights = [0.] * (2 * strikes_universe_size + 1)
@@ -350,10 +359,10 @@ class TradingModel:
             if quote_in_usd:
                 value *= self.underlying_price
                 hit_ratio = strategy_value_pct.loc[(strategy_value_pct - cost / self.underlying_price) > 0.].count() / strategy_value_pct.count()
-                scale_factor = 1.
+                scale_factor = 1. * price_scale
             else:   
                 hit_ratio = strategy_value_pct.loc[(strategy_value_pct - cost) > 0.].count() / strategy_value_pct.count()
-                scale_factor =  self.underlying_price
+                scale_factor =  self.underlying_price * price_scale
             
             result = ScenarioRunResult(count, hit_ratio, cost, value,
                                        underlying_price=self.underlying_price,
