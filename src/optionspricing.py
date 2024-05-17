@@ -78,7 +78,7 @@ def load_options(base_url: str, headers: Dict[str, str], instrument_code: str) -
     logging.warning(f"calling option chain: {get_options}")
     response_options = requests.get(get_options, headers=headers)
     if response_options.status_code != 200:
-        raise IOError(f'request failed with error {response_options.status_code}')
+        raise IOError(f'request failed with error {response_options.status_code}: {get_options}')
 
     result = response_options.json()['result']
     puts = {}
