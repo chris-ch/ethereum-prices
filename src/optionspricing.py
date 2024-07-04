@@ -1,7 +1,7 @@
 import os
 import logging
 from datetime import datetime, timedelta, timezone
-from typing import Dict, Set, Tuple, List
+from typing import Dict, Optional, Set, Tuple, List
 
 import pandas
 import requests
@@ -54,6 +54,10 @@ def load_bid_ask(base_url: str, headers: Dict[str, str], options: Dict[Tuple[flo
         bid = bid_ask['bids'][0][0]
     if 'asks' in bid_ask and bid_ask['asks'] and bid_ask['asks'][0] and bid_ask['asks'][0][0]:
         ask = bid_ask['asks'][0][0]
+    
+    if bid is None and ask is None:
+        logging.warning(f"failed to load bid and ask for {get_bid_ask}")
+        
     return bid, ask
 
 
@@ -84,6 +88,8 @@ def load_options(base_url: str, headers: Dict[str, str], instrument_code: str) -
     puts = {}
     calls = {}
     for option in result:
+        if option['base_currency'] != instrument_code:
+            continue
         if currency_code == 'USDC' and not (
             option['instrument_name'].startswith('SOL_')
             or option['instrument_name'].startswith('XRP_')
@@ -319,20 +325,27 @@ class TradingModel:
     def valuation(self):
         return self._valuation
 
-    def backtest(self, option_chain_df, put_weights, call_weights):
+    @property
+    def instrument_code(self):
+        return self._instrument_code
+
+    def backtest(self, option_chain_df, put_weights, call_weights) -> Optional[Tuple[float, float]]:
         cost = 0.
         for index, put_call_weight in enumerate(zip(put_weights, call_weights)):
             put_weight, call_weight = put_call_weight
             put_prefix = ("bid", "ask")[put_weight > 0]
             call_prefix = ("bid", "ask")[call_weight > 0]
+            current_option = option_chain_df.iloc[index]
             if put_weight != 0.:
-                if f"put_{put_prefix}" not in option_chain_df.iloc[index]:
-                    raise ValueError(f"put_{put_prefix} not found in option chain")
-                cost += put_weight * option_chain_df.iloc[index][f"put_{put_prefix}"]
+                if f"put_{put_prefix}" not in current_option or not current_option[f"put_{put_prefix}"]:
+                    # raise ValueError(f"put_{put_prefix} not found in option chain")
+                    return None
+                cost += put_weight * current_option[f"put_{put_prefix}"]
             if call_weight != 0.:
-                if f"call_{call_prefix}" not in option_chain_df.iloc[index]:
-                    raise ValueError(f"call_{put_prefix} not found in option chain")
-                cost += call_weight * option_chain_df.iloc[index][f"call_{call_prefix}"]
+                if f"call_{call_prefix}" not in current_option or not current_option[f"call_{call_prefix}"]:
+                    # raise ValueError(f"call_{put_prefix} not found in option chain")
+                    return None
+                cost += call_weight * current_option[f"call_{call_prefix}"]
         
         def calculate_value(row):
             value_puts = sum(row[f"put_value_pct_{count + 1}"] * weight for count, weight in enumerate(put_weights))
@@ -354,7 +367,12 @@ class TradingModel:
             put_weights[index_put] = 1.
             call_weights[index_call] = 1.
             
-            strategy_value_pct, cost = self.backtest(option_chain_df, put_weights, call_weights)
+            backtest_result = self.backtest(option_chain_df, put_weights, call_weights)
+            if not backtest_result:
+                logging.error(f"no result for {option_chain_df}")
+                continue
+            
+            strategy_value_pct, cost = backtest_result
             value = strategy_value_pct.mean()
             if quote_in_usd:
                 value *= self.underlying_price
@@ -384,26 +402,28 @@ class TradingModel:
                           quote_in_usd: bool=False
                           ) -> TradingScenario:
         scenario = TradingScenario(self.underlying_price, self.target_expiry, self.remaining_hours, option_chain_df)        
-        strategy_value_pct, cost = self.backtest(option_chain_df, put_weights, call_weights)
-        value = strategy_value_pct.mean()
-        
-        hit_ratio = strategy_value_pct.loc[(strategy_value_pct - cost) > 0.].count() / strategy_value_pct.count()
-        
-        if quote_in_usd:
-            scale_factor = 1.
-        else:
-            scale_factor =  self.underlying_price
-        
-        result = ScenarioRunResult(0, hit_ratio, cost, value,
-                                    underlying_price=self.underlying_price,
-                                    option_chain_df=option_chain_df,
-                                    put_weights=put_weights,
-                                    call_weights=call_weights,
-                                    scale_factor=scale_factor
-                                    )
-        scenario.add_case(result)
-        
-        backtest_current = strategy_value_pct - cost
-        backtest_sampled_daily = backtest_current.loc[backtest_current.index.hour == 9]
-        scenario.add_backtest(backtest_sampled_daily)
+        backtest_result = self.backtest(option_chain_df, put_weights, call_weights)
+        if backtest_result:
+            strategy_value_pct, cost = backtest_result
+            value = strategy_value_pct.mean()
+            
+            hit_ratio = strategy_value_pct.loc[(strategy_value_pct - cost) > 0.].count() / strategy_value_pct.count()
+            
+            if quote_in_usd:
+                scale_factor = 1.
+            else:
+                scale_factor =  self.underlying_price
+            
+            result = ScenarioRunResult(0, hit_ratio, cost, value,
+                                        underlying_price=self.underlying_price,
+                                        option_chain_df=option_chain_df,
+                                        put_weights=put_weights,
+                                        call_weights=call_weights,
+                                        scale_factor=scale_factor
+                                        )
+            scenario.add_case(result)
+            
+            backtest_current = strategy_value_pct - cost
+            backtest_sampled_daily = backtest_current.loc[backtest_current.index.hour == 9]
+            scenario.add_backtest(backtest_sampled_daily)
         return scenario
