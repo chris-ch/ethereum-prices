@@ -1,3 +1,7 @@
+variable "s3_bucket_states" {
+    sensitive = true
+}
+
 variable "aws_region" {
   type = string
 }

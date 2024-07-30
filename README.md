@@ -20,6 +20,7 @@ DERIBIT_CLIENT_ID=xxxx
 DERIBIT_CLIENT_SECRET=xxxx
 SLACK_WEBHOOK_URL=xxxx
 TF_VAR_slack_webhook_url=${SLACK_WEBHOOK_URL}
+TF_VAR_s3_bucket_states=xxxx
 EOT
 ```
 
@@ -29,7 +30,7 @@ Manually setting variables from `.env`:
 export $(cat .env | grep -v '^#' | xargs)
 ```
 
-Manually initialize terraform:
+Manually initialize OpenTofu:
 ```shell
 export TF_VAR_aws_stage="test"
 export TF_VAR_aws_region="us-east-1"
