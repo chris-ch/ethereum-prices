@@ -43,5 +43,10 @@ RUN /usr/bin/curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" --o
     && sudo ./aws/install --bin-dir /usr/local/bin --install-dir /usr/local/aws-cli --update \
     && rm -fr awscliv2.zip \
     && rm -fr ./aws
-    
+
+RUN /usr/bin/curl --proto '=https' --tlsv1.2 -fsSL https://get.opentofu.org/install-opentofu.sh -o install-opentofu.sh
+RUN chmod +x install-opentofu.sh
+RUN ./install-opentofu.sh --install-method deb
+RUN rm -f install-opentofu.sh
+
 CMD [ "sleep", "infinity" ]
