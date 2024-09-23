@@ -3,6 +3,11 @@
 	, "remoteUser": "python"
 	,
 	"containerUser": "python",
+	"features": {
+	  "ghcr.io/deep-space-cartel/devcontainers-features/starship:latest": {
+		  "version": "latest"
+	  }
+	},
 	"customizations": {
 		"vscode": {
 			"extensions": [
@@ -17,6 +22,8 @@
 			]
 		}
 	}
+	, "updateContentCommand": "sudo apt update && sudo apt upgrade -y && sudo apt install direnv && [ -f packages.txt ] && sudo xargs apt install -y <packages.txt; pipx ensurepath; pipx install poetry; poetry update; echo '✅ Packages installed and Requirements met'"
 	, "postCreateCommand": "bash .devcontainer/startup.sh"
-	, "postStartCommand": "bash --login -c 'pip install --upgrade pip && poetry update'"
+  	, "postStartCommand": "sudo chown -R $(id -u):$(id -g) /workspaces/$(basename \"$PWD\") || (echo 'chown failed' && ls -l /workspaces/$(basename \"$PWD\") && id)"
+	, "postAttachCommand": "echo 'eval \"$(starship init bash)\"\neval \"$(direnv hook bash)\"' >> ~/.bashrc && bash --login -c 'pip install --upgrade pip && poetry update'"
 }
