@@ -43,7 +43,7 @@ def load_prices_by_month(s3, bucket_name: str, code: str, year: int, month: int,
     if data_file is not None and not force_refresh:
         binance_prices = pandas.read_csv(data_file, compression='zip', header=0)
     elif not no_update:
-        logging.info(f'no previous data found in {target_path}, loading from binance')
+        logging.info(f'no previous data found in {target_path} for month {month:02d}, loading from binance')
         binance_client = binance.Client()
         from_date = datetime(year, month, 1, 0, 0, 0)
         until_date = first_day_of_next_month(year, month) - timedelta(seconds=1)
