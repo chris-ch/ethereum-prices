@@ -72,7 +72,7 @@ def load_current_price(base_url: str, headers: Dict[str, str], instrument_code: 
 
 
 def load_options(base_url: str, headers: Dict[str, str], instrument_code: str) -> Tuple[Dict[Tuple[float, datetime], str], Dict[Tuple[float, datetime], str]]:
-    if instrument_code in ('SOL', 'XRP', 'MATIC'):
+    if instrument_code in ('SOL', 'XRP', 'BNB'):
         currency_code = 'USDC'
         
     else:
@@ -93,7 +93,7 @@ def load_options(base_url: str, headers: Dict[str, str], instrument_code: str) -
         if currency_code == 'USDC' and not (
             option['instrument_name'].startswith('SOL_')
             or option['instrument_name'].startswith('XRP_')
-            or option['instrument_name'].startswith('MATIC_')
+            or option['instrument_name'].startswith('BNB_')
         ):
             continue
         if option['option_type'] == 'put':
