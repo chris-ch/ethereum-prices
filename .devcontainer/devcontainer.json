@@ -18,7 +18,8 @@
 				"ms-toolsai.jupyter",
 				"amazonwebservices.aws-toolkit-vscode",
 				"zeshuaro.vscode-python-poetry",
-				"tamasfe.even-better-toml"
+				"tamasfe.even-better-toml",
+				"mkhl.direnv"
 			]
 		}
 	}
