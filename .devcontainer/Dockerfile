@@ -27,6 +27,8 @@ RUN /usr/sbin/groupadd --gid ${USER_GID} ${USER_NAME} \
     && /bin/echo ${USER_NAME} ALL=\(root\) NOPASSWD:ALL > /etc/sudoers.d/${USER_NAME} \
     && chmod 0440 /etc/sudoers.d/${USER_NAME}
 
+RUN curl -sfL https://direnv.net/install.sh | /usr/bin/bash
+
 USER ${USER_NAME}
 
 WORKDIR /home/${USER_NAME}
@@ -48,5 +50,10 @@ RUN /usr/bin/curl --proto '=https' --tlsv1.2 -fsSL https://get.opentofu.org/inst
 RUN chmod +x install-opentofu.sh
 RUN ./install-opentofu.sh --install-method deb
 RUN rm -f install-opentofu.sh
+
+RUN curl -sS https://starship.rs/install.sh | sh -s -- -y
+
+RUN echo 'eval "$(starship init bash)"' >> ~/.bashrc
+RUN echo 'eval "$(direnv hook bash)"' >> ~/.bashrc
 
 CMD [ "sleep", "infinity" ]
