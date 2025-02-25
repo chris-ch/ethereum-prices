@@ -3,11 +3,6 @@
 	, "remoteUser": "python"
 	,
 	"containerUser": "python",
-	"features": {
-	  "ghcr.io/deep-space-cartel/devcontainers-features/starship:latest": {
-		  "version": "latest"
-	  }
-	},
 	"customizations": {
 		"vscode": {
 			"extensions": [
